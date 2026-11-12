@@ -14,7 +14,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 {
     private const double SnowballGravity = 1250.0;
     private const double MaximumSnowballRadius = 56.0;
-    private const double MinimumFormedSnowballRadius = 6.0;
+    private const double MinimumFormedSnowballRadius = 4.0;
     private const int MaximumSnowballCount = 24;
 
     private readonly List<Snowflake> _particles = [];
@@ -111,6 +111,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     {
         if (!_settings.CursorInteractionEnabled ||
             _settings.CursorMode != CursorInteractionMode.Mitten ||
+            _snowballs.Count + _snowmen.Count * 3 >= MaximumSnowballCount ||
             TryFindSnowballAt(position, out _))
         {
             return false;
@@ -301,7 +302,9 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         var depth = 0.85 * Math.Clamp(delta * 60, 0.35, 2.0);
         var collectedThisFrame = 0.0;
 
-        for (var step = 0; step <= steps; step++)
+        if (_formingSnowball.Radius < MaximumSnowballRadius - 0.01)
+        {
+            for (var step = 1; step <= steps; step++)
         {
             var progress = (double)step / steps;
             var x = Math.Clamp(_lastGatherPosition.X + dx * progress, 0, width);
@@ -314,7 +317,8 @@ internal sealed class SnowField : FrameworkElement, IDisposable
                 continue;
             }
 
-            collectedThisFrame += _snowSurface.CollectSnow(x, brushRadius, depth);
+                collectedThisFrame += _snowSurface.CollectSnow(x, brushRadius, depth);
+            }
         }
 
         _gatheredSnowArea += collectedThisFrame;
