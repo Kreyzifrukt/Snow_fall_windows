@@ -87,6 +87,8 @@ Flake-Windows/
 │   │   ├── SnowField.cs
 │   │   ├── Snowflake.cs
 │   │   ├── SnowSurface.cs
+│   │   ├── Snowball.cs
+│   │   ├── Snowman.cs
 │   │   └── WeatherSettings.cs
 │   ├── App.xaml
 │   ├── App.xaml.cs
