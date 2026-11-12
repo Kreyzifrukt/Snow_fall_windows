@@ -152,6 +152,52 @@ internal sealed class SnowSurface
         }
     }
 
+    /// <summary>
+    /// Lets a rolling snowball collect a thin layer of snow from the surface.
+    /// The returned value is the collected surface area, used to grow the ball.
+    /// </summary>
+    public double CollectForSnowball(double x, double radius, double depth)
+    {
+        if (IsClearing || !_hasSnow || _heights.Length < 2 || _sampleSpacing <= 0 || depth <= 0)
+        {
+            return 0;
+        }
+
+        var center = Math.Clamp(x, 0, _width);
+        var centerIndex = (int)Math.Round(center / _sampleSpacing);
+        var brushRadius = Math.Max(10, radius * 0.82);
+        var affectedSamples = (int)Math.Ceiling(brushRadius * 1.35 / _sampleSpacing);
+        var collectedArea = 0.0;
+        var changed = false;
+
+        for (var index = Math.Max(0, centerIndex - affectedSamples);
+             index <= Math.Min(_heights.Length - 1, centerIndex + affectedSamples);
+             index++)
+        {
+            var distance = (index - centerIndex) * _sampleSpacing;
+            var normalizedDistance = distance / brushRadius;
+            var weight = Math.Exp(-2.2 * normalizedDistance * normalizedDistance);
+            var removal = Math.Min(_heights[index], depth * weight);
+
+            if (removal <= 0.0001)
+            {
+                continue;
+            }
+
+            _heights[index] -= removal;
+            collectedArea += removal * _sampleSpacing;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            _hasSnow = _heights.Any(height => height > 0.001);
+            _geometryDirty = true;
+        }
+
+        return collectedArea;
+    }
+
     /// <summary>Removes a soft circular brush of snow around the supplied surface position.</summary>
     public bool Sweep(double x, double radius, double strength)
     {
