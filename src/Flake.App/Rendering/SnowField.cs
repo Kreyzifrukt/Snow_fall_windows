@@ -50,6 +50,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         SizeChanged += (_, _) => ResetParticles();
         MouseLeftButtonDown += HandleMouseLeftButtonDown;
         MouseMove += HandleMouseMove;
+        MouseLeave += HandleMouseLeave;
         MouseLeftButtonUp += HandleMouseLeftButtonUp;
         LostMouseCapture += HandleLostMouseCapture;
         CompositionTarget.Rendering += OnRendering;
@@ -682,6 +683,14 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         _lastDragTime = now;
         e.Handled = true;
         InvalidateVisual();
+    }
+
+    private void HandleMouseLeave(object sender, MouseEventArgs e)
+    {
+        if (_draggedSnowball is null)
+        {
+            SetClickThrough(true);
+        }
     }
 
     private void HandleMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
