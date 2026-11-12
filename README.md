@@ -18,10 +18,10 @@ A lightweight desktop snowfall overlay for Windows 10 and Windows 11, built with
 - System-tray command to clear all accumulated snow without restarting the app.
 - Settings window with Weather, Guide, and Language tabs. The interface is available in English (default), Russian, and Ukrainian.
 - Animated snow cleanup, a configurable clear desktop zone, and an on/off wind toggle with changing gusts.
-- Optional cursor interaction: nearby flakes scatter away from the pointer; Mitten mode lets you sweep accumulated snow by moving the pointer across it, without blocking desktop clicks.
-- Snowballs can be created from the system-tray menu, dragged around the desktop, rolled across accumulated snow, and grown as they collect it.
+- Optional cursor interaction: nearby flakes scatter away from the pointer in Scatter mode. In Mitten mode, hold the left mouse button on accumulated snow and drag to collect it into a growing snowball; the overlay continues to pass desktop input through.
+- Snowballs are formed manually by collecting actual accumulated snow with the pointer. Release the left mouse button to drop the growing ball, then drag or roll it across the desktop.
 - Snowballs collide with each other using a lightweight circle-physics model. Stack three balls from largest at the bottom to smallest at the top to assemble a snowman.
-- Mouse input is enabled only over snowballs and snowmen (and while dragging); the rest of the overlay remains click-through.
+- The overlay remains click-through during snow gathering. WPF mouse input is enabled only over finished snowballs and snowmen so they can be dragged.
 - Weather settings with:
   - Light snow, normal snow, and blizzard presets.
   - Wind direction (left-to-right or right-to-left).
@@ -69,7 +69,7 @@ The full technical task, requirements, acceptance criteria, and current status a
 0. **Foundation** — transparent desktop overlay, snow particle rendering, click-through behavior, system tray, and Windows CI.
 1. **Weather controls** — wind direction and speed, snowflake size and falling speed, and three weather presets. Implemented; manual Windows verification is pending.
 2. **Snow accumulation** — growing uneven snow layer and a tray command to clear it. Implemented; manual Windows verification is pending.
-3. **Snowballs and snowmen** — rolling and draggable snowballs, growth from accumulated snow, ball-to-ball collisions, and automatic snowman assembly from a stable three-ball stack. Implemented in the feature branch; CI and manual Windows verification are pending.
+3. **Snowballs and snowmen** — hand-forming balls by collecting the actual snow layer, dragging and rolling them, ball-to-ball collisions, and automatic snowman assembly from a stable three-ball stack. Implemented in the feature branch; CI and manual Windows verification are pending.
 4. **Persistence and setup** — save settings/snow state, startup option, and installer. Not started.
 5. **Stabilization** — performance, multi-monitor/DPI, and Windows 10/11 compatibility testing. Not started.
 
