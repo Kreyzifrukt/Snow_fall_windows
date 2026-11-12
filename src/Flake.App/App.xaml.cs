@@ -54,7 +54,6 @@ public partial class App : Application
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(T(_isPaused ? "trayResume" : "trayPause"), null, (_, _) => TogglePause());
         menu.Items.Add(T("trayClear"), null, (_, _) => _overlay?.ClearAccumulatedSnow());
-        menu.Items.Add(T("trayAddSnowball"), null, (_, _) => { _overlay?.AddSnowball(); });
         menu.Items.Add(T("traySettings"), null, (_, _) => ShowSettings());
 
         var weatherMenu = new ToolStripMenuItem(T("trayWeatherMode"));
