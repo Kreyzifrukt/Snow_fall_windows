@@ -637,7 +637,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         InvalidateVisual();
     }
 
-    private void HandleMouseMove(object sender, MouseEventArgs e)
+    private void HandleMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
         if (_draggedSnowball is null)
         {
@@ -685,7 +685,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         InvalidateVisual();
     }
 
-    private void HandleMouseLeave(object sender, MouseEventArgs e)
+    private void HandleMouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
     {
         if (_draggedSnowball is null)
         {
@@ -704,7 +704,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         e.Handled = true;
     }
 
-    private void HandleLostMouseCapture(object sender, MouseEventArgs e)
+    private void HandleLostMouseCapture(object sender, System.Windows.Input.MouseEventArgs e)
     {
         if (_draggedSnowball is not null)
         {
