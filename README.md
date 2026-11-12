@@ -54,7 +54,7 @@ The output will be under `src\Flake.App\bin\Release\net10.0-windows\win-x64\publ
 
 ## Publish to GitHub
 
-The full project archive supplied during development includes the local Git history and annotated `v1.0` tag. The GitHub repository is the public source location: [Kreyzifrukt/Snow_fall_windows](https://github.com/Kreyzifrukt/Snow_fall_windows). The `PUBLISH-TO-GITHUB.ps1` script can push a local copy that contains the complete development history; authenticate first with `gh auth login`.
+The GitHub repository is the public source location: [Kreyzifrukt/Snow_fall_windows](https://github.com/Kreyzifrukt/Snow_fall_windows). The full project archive supplied during development includes the local commit history and annotated `v1.0` tag. To replace the initial API-import history on GitHub with that complete local history, run `PUBLISH-TO-GITHUB.ps1` from the full archive after `gh auth login`. The script checks that the remote still has the expected import history and requires you to type `REPLACE` before using a lease-protected force push.
 
 ## Development stages
 

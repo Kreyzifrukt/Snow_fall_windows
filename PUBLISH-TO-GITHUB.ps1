@@ -15,11 +15,7 @@ if ($LASTEXITCODE -ne 0) {
 
 $repository = 'Kreyzifrukt/Snow_fall_windows'
 $repositoryUrl = "https://github.com/$repository.git"
-
-gh repo view $repository *> $null
-if ($LASTEXITCODE -ne 0) {
-    throw "The target repository https://github.com/$repository was not found or is not accessible to the authenticated account."
-}
+$knownImportCommit = '85bce5de5246a04586d65ab1414e721ee0a427d1'
 
 $origin = git remote get-url origin 2>$null
 if ($origin) {
@@ -34,15 +30,37 @@ else {
     }
 }
 
-git push --set-upstream origin main
+git fetch origin main --tags
 if ($LASTEXITCODE -ne 0) {
-    throw 'Could not push the main branch. Check whether the remote branch contains commits that are not present locally.'
+    throw 'Could not fetch the target branch. Check repository access and authentication.'
+}
+
+$remoteHead = (git rev-parse refs/remotes/origin/main).Trim()
+if (-not $remoteHead) {
+    throw 'The remote main branch could not be resolved.'
+}
+
+$remoteHistory = @(git rev-list --first-parent --max-count=3 refs/remotes/origin/main)
+if ($remoteHistory.Count -lt 3 -or $remoteHistory[2] -ne $knownImportCommit) {
+    throw 'The remote main branch no longer has the expected initial-import history. Refusing to replace it; inspect the remote branch manually.'
+}
+
+Write-Host "The remote branch contains the temporary source-import history for $repository."
+Write-Host 'This operation will replace that branch history with the complete local Git history and push the local tags.'
+$confirmation = Read-Host 'Type REPLACE to continue'
+if ($confirmation -cne 'REPLACE') {
+    throw 'Publishing cancelled. The remote repository was not changed.'
+}
+
+git push "--force-with-lease=refs/heads/main:$remoteHead" --set-upstream origin main
+if ($LASTEXITCODE -ne 0) {
+    throw 'Could not replace the remote main branch. The remote may have changed since it was fetched.'
 }
 
 git push origin --tags
 if ($LASTEXITCODE -ne 0) {
-    throw 'The branch was pushed, but one or more version tags could not be pushed.'
+    throw 'The main branch was pushed, but one or more local tags could not be pushed.'
 }
 
-Write-Host "Published https://github.com/$repository"
+Write-Host "Published complete local history to https://github.com/$repository"
 Write-Host 'Pushed the main branch and all local version tags, including v1.0.'
