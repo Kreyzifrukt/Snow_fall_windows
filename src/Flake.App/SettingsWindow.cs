@@ -349,6 +349,7 @@ internal sealed class SettingsWindow : Window
             T("guideSafeZone"),
             T("guideWind"),
             T("guideCursor"),
+            T("guideSnowballs"),
             T("guideNote")
         });
     }
