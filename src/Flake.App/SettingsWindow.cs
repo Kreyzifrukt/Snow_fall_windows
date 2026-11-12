@@ -2,7 +2,13 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Flake.Rendering;
+using WpfBrushes = System.Windows.Media.Brushes;
+using WpfButton = System.Windows.Controls.Button;
+using WpfColor = System.Windows.Media.Color;
 using WpfComboBox = System.Windows.Controls.ComboBox;
+using WpfFontFamily = System.Windows.Media.FontFamily;
+using WpfHorizontalAlignment = System.Windows.HorizontalAlignment;
+using WpfOrientation = System.Windows.Controls.Orientation;
 using WpfControl = System.Windows.Controls.Control;
 using WpfPanel = System.Windows.Controls.Panel;
 
@@ -32,8 +38,8 @@ internal sealed class SettingsWindow : Window
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        Background = new SolidColorBrush(Color.FromRgb(245, 248, 252));
-        FontFamily = new FontFamily("Segoe UI");
+        Background = new SolidColorBrush(WpfColor.FromRgb(245, 248, 252));
+        FontFamily = new WpfFontFamily("Segoe UI");
 
         _modeBox = CreateComboBox(["Light snow", "Normal snow", "Blizzard"]);
         _directionBox = CreateComboBox(["Left to right", "Right to left"]);
@@ -44,13 +50,13 @@ internal sealed class SettingsWindow : Window
         _flakeSizeValue = CreateValueText();
         _fallSpeedValue = CreateValueText();
 
-        var content = new StackPanel { Margin = new Thickness(24), Orientation = Orientation.Vertical };
+        var content = new StackPanel { Margin = new Thickness(24), Orientation = WpfOrientation.Vertical };
         content.Children.Add(new TextBlock
         {
             Text = "Weather settings",
             FontSize = 23,
             FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(Color.FromRgb(30, 42, 58)),
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(30, 42, 58)),
             Margin = new Thickness(0, 0, 0, 18)
         });
 
@@ -60,12 +66,12 @@ internal sealed class SettingsWindow : Window
         AddSliderControl(content, "Snowflake size", _flakeSizeSlider, _flakeSizeValue, "Small", "Large");
         AddSliderControl(content, "Falling speed", _fallSpeedSlider, _fallSpeedValue, "Slow", "Fast");
 
-        var closeButton = new Button
+        var closeButton = new WpfButton
         {
             Content = "Close",
             Width = 100,
             Height = 34,
-            HorizontalAlignment = HorizontalAlignment.Right,
+            HorizontalAlignment = WpfHorizontalAlignment.Right,
             Margin = new Thickness(0, 12, 0, 0),
             Padding = new Thickness(12, 4, 12, 4)
         };
@@ -162,7 +168,7 @@ internal sealed class SettingsWindow : Window
             ItemsSource = items,
             Height = 30,
             MinWidth = 180,
-            HorizontalAlignment = HorizontalAlignment.Stretch
+            HorizontalAlignment = WpfHorizontalAlignment.Stretch
         };
         return comboBox;
     }
@@ -181,7 +187,7 @@ internal sealed class SettingsWindow : Window
         Width = 48,
         TextAlignment = TextAlignment.Right,
         VerticalAlignment = VerticalAlignment.Center,
-        Foreground = new SolidColorBrush(Color.FromRgb(65, 78, 96))
+        Foreground = new SolidColorBrush(WpfColor.FromRgb(65, 78, 96))
     };
 
     private static void AddLabeledControl(WpfPanel parent, string label, WpfControl control)
@@ -191,7 +197,7 @@ internal sealed class SettingsWindow : Window
             Text = label,
             FontWeight = FontWeights.Medium,
             Margin = new Thickness(0, 8, 0, 5),
-            Foreground = new SolidColorBrush(Color.FromRgb(55, 68, 86))
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(55, 68, 86))
         });
         parent.Children.Add(control);
     }
@@ -209,7 +215,7 @@ internal sealed class SettingsWindow : Window
             Text = label,
             FontWeight = FontWeights.Medium,
             Margin = new Thickness(0, 12, 0, 2),
-            Foreground = new SolidColorBrush(Color.FromRgb(55, 68, 86))
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(55, 68, 86))
         });
 
         var row = new Grid { ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } } };
@@ -224,8 +230,8 @@ internal sealed class SettingsWindow : Window
             Margin = new Thickness(0, 0, 0, 2),
             ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition() }
         };
-        var minText = new TextBlock { Text = minimumLabel, FontSize = 11, Foreground = Brushes.Gray };
-        var maxText = new TextBlock { Text = maximumLabel, FontSize = 11, Foreground = Brushes.Gray, HorizontalAlignment = HorizontalAlignment.Right };
+        var minText = new TextBlock { Text = minimumLabel, FontSize = 11, Foreground = WpfBrushes.Gray };
+        var maxText = new TextBlock { Text = maximumLabel, FontSize = 11, Foreground = WpfBrushes.Gray, HorizontalAlignment = WpfHorizontalAlignment.Right };
         Grid.SetColumn(minText, 0);
         Grid.SetColumn(maxText, 1);
         range.Children.Add(minText);
