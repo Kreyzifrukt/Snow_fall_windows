@@ -1,0 +1,46 @@
+using System.Windows;
+using System.Windows.Interop;
+using Flake.Interop;
+using Flake.Rendering;
+
+namespace Flake;
+
+public sealed class MainWindow : Window
+{
+    private readonly SnowField _snowField;
+
+    public MainWindow()
+    {
+        Title = "Flake";
+        WindowStyle = WindowStyle.None;
+        ResizeMode = ResizeMode.NoResize;
+        AllowsTransparency = true;
+        Background = System.Windows.Media.Brushes.Transparent;
+        ShowInTaskbar = false;
+        ShowActivated = false;
+        Topmost = true;
+        WindowStartupLocation = WindowStartupLocation.Manual;
+
+        Left = SystemParameters.VirtualScreenLeft;
+        Top = SystemParameters.VirtualScreenTop;
+        Width = SystemParameters.VirtualScreenWidth;
+        Height = SystemParameters.VirtualScreenHeight;
+
+        _snowField = new SnowField();
+        Content = _snowField;
+        SourceInitialized += OnSourceInitialized;
+        Closed += (_, _) => _snowField.Dispose();
+    }
+
+    public bool TogglePause() => _snowField.TogglePause();
+
+    internal void ApplyWeatherSettings(WeatherSettings settings) => _snowField.ApplySettings(settings);
+
+    internal void ClearAccumulatedSnow() => _snowField.ClearAccumulatedSnow();
+
+    private void OnSourceInitialized(object? sender, EventArgs e)
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        NativeWindowStyles.MakeOverlayClickThrough(handle);
+    }
+}
