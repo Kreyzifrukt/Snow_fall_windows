@@ -130,12 +130,12 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         return true;
     }
 
-    protected override HitTestResult? HitTestCore(PointHitTestParameters hitTestParameters)
+    protected override HitTestResult HitTestCore(PointHitTestParameters hitTestParameters)
     {
         var point = hitTestParameters.HitPoint;
         return TryFindSnowballAt(point, out _)
             ? new PointHitTestResult(this, point)
-            : null;
+            : null!;
     }
 
     protected override void OnRender(DrawingContext drawingContext)
