@@ -40,8 +40,6 @@ public sealed class MainWindow : Window
 
     internal void ClearAccumulatedSnow() => _snowField.ClearAccumulatedSnow();
 
-    internal bool AddSnowball() => _snowField.AddSnowball();
-
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
         _overlayHandle = new WindowInteropHelper(this).Handle;
