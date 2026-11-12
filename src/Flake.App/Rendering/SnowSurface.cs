@@ -153,8 +153,8 @@ internal sealed class SnowSurface
     }
 
     /// <summary>
-    /// Lets a rolling snowball collect a thin layer of snow from the surface.
-    /// The returned value is the collected surface area, used to grow the ball.
+    /// Removes snow from a circular brush area and returns the amount collected.
+    /// The same operation is used by hand-gathering and by rolling snowballs.
     /// </summary>
     public double CollectSnow(double x, double radius, double depth)
     {
@@ -196,46 +196,6 @@ internal sealed class SnowSurface
         }
 
         return collectedArea;
-    }
-
-    /// <summary>Removes a soft circular brush of snow around the supplied surface position.</summary>
-    public bool Sweep(double x, double radius, double strength)
-    {
-        if (IsClearing || !_hasSnow || _heights.Length < 2 || _sampleSpacing <= 0)
-        {
-            return false;
-        }
-
-        var center = Math.Clamp(x, 0, _width);
-        var centerIndex = (int)Math.Round(center / _sampleSpacing);
-        var brushRadius = Math.Max(8, radius);
-        var affectedSamples = (int)Math.Ceiling(brushRadius * 1.5 / _sampleSpacing);
-        var changed = false;
-
-        for (var index = Math.Max(0, centerIndex - affectedSamples);
-             index <= Math.Min(_heights.Length - 1, centerIndex + affectedSamples);
-             index++)
-        {
-            var distance = (index - centerIndex) * _sampleSpacing;
-            var normalizedDistance = distance / brushRadius;
-            var weight = Math.Exp(-2.2 * normalizedDistance * normalizedDistance);
-            var removal = Math.Max(0, strength) * weight;
-            var nextHeight = Math.Max(0, _heights[index] - removal);
-
-            if (nextHeight < _heights[index] - 0.001)
-            {
-                _heights[index] = nextHeight;
-                changed = true;
-            }
-        }
-
-        if (changed)
-        {
-            _hasSnow = _heights.Any(height => height > 0.001);
-            _geometryDirty = true;
-        }
-
-        return changed;
     }
 
     public void BeginAnimatedClear()
