@@ -1,6 +1,6 @@
 namespace Flake.Rendering;
 
-/// <summary>A draggable, rolling snowball in the desktop simulation.</summary>
+/// <summary>A hand-formed, draggable snowball in the desktop simulation.</summary>
 internal sealed class Snowball
 {
     public double X { get; set; }
