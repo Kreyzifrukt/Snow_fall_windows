@@ -28,10 +28,8 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     private bool _isPaused;
     private bool _disposed;
     private WpfPoint _cursorPosition;
-    private WpfPoint _previousCursorPosition;
     private WpfPoint _pointerPosition;
     private bool _hasCursorPosition;
-    private bool _hasPreviousCursorPosition;
     private bool _hasPointerPosition;
     private bool _isClickThrough = true;
     private bool _wasLeftButtonDown;
@@ -84,7 +82,6 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         if (!_settings.CursorInteractionEnabled)
         {
             _hasCursorPosition = false;
-            _hasPreviousCursorPosition = false;
         }
 
         if (!IsLoaded)
@@ -442,7 +439,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
             if (Math.Abs(snowball.VelocityX) > 16 && surfaceHeight > 0.5)
             {
                 var speedFactor = Math.Clamp(Math.Abs(snowball.VelocityX) / 80, 0.15, 1.0);
-                var collectedArea = _snowSurface.CollectForSnowball(
+                var collectedArea = _snowSurface.CollectSnow(
                     snowball.X,
                     radius,
                     depth: 14 * delta * speedFactor);
@@ -619,8 +616,6 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         {
             _hasPointerPosition = false;
             _hasCursorPosition = false;
-            _hasPreviousCursorPosition = false;
-            _cursorMovementDistance = 0;
             UpdateClickThroughState();
             return hadCursor;
         }
@@ -632,20 +627,13 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         if (!_settings.CursorInteractionEnabled)
         {
             _hasCursorPosition = false;
-            _hasPreviousCursorPosition = false;
-            _cursorMovementDistance = 0;
             UpdateClickThroughState();
             return hadCursor;
         }
 
-        var wasVisible = _hasCursorPosition;
         var dx = localPosition.X - _cursorPosition.X;
         var dy = localPosition.Y - _cursorPosition.Y;
-        _cursorMovementDistance = wasVisible ? Math.Sqrt(dx * dx + dy * dy) : 0;
-        var moved = !wasVisible || _cursorMovementDistance > 0.5;
-
-        _previousCursorPosition = _cursorPosition;
-        _hasPreviousCursorPosition = wasVisible;
+        var moved = !hadCursor || dx * dx + dy * dy > 0.25;
         _cursorPosition = localPosition;
         _hasCursorPosition = true;
         UpdateClickThroughState();
