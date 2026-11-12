@@ -55,6 +55,7 @@ internal static class Localization
             ["trayPause"] = "Pause snowfall",
             ["trayResume"] = "Resume snowfall",
             ["trayClear"] = "Clear accumulated snow",
+            ["trayAddSnowball"] = "Create snowball",
             ["traySettings"] = "Settings...",
             ["trayWeatherMode"] = "Weather mode",
             ["trayExit"] = "Exit Flake"
@@ -103,6 +104,7 @@ internal static class Localization
             ["trayPause"] = "Приостановить снегопад",
             ["trayResume"] = "Продолжить снегопад",
             ["trayClear"] = "Очистить накопленный снег",
+            ["trayAddSnowball"] = "Создать снежок",
             ["traySettings"] = "Настройки...",
             ["trayWeatherMode"] = "Режим погоды",
             ["trayExit"] = "Выйти из Flake"
@@ -151,6 +153,7 @@ internal static class Localization
             ["trayPause"] = "Призупинити снігопад",
             ["trayResume"] = "Продовжити снігопад",
             ["trayClear"] = "Очистити накопичений сніг",
+            ["trayAddSnowball"] = "Створити сніжку",
             ["traySettings"] = "Налаштування...",
             ["trayWeatherMode"] = "Режим погоди",
             ["trayExit"] = "Вийти з Flake"
