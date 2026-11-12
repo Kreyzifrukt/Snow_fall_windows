@@ -12,16 +12,16 @@ A lightweight desktop snowfall overlay for Windows 10 and Windows 11, built with
 
 - Transparent overlay spanning the Windows virtual desktop.
 - Animated snow particles with varied size, speed, drift, and opacity.
-- Mouse clicks pass through the overlay everywhere except directly over interactive snow objects.
+- Mouse clicks pass through the overlay except over the snow surface while Mitten gathering is available, or directly over finished snow objects.
 - Notification-area (system tray) menu to pause/resume, select a weather preset, open settings, or exit.
 - Snow accumulates along the bottom edge as flakes land, creating a gently uneven surface. The layer is drawn as part of the transparent overlay and does not intercept mouse clicks.
 - System-tray command to clear all accumulated snow without restarting the app.
 - Settings window with Weather, Guide, and Language tabs. The interface is available in English (default), Russian, and Ukrainian.
 - Animated snow cleanup, a configurable clear desktop zone, and an on/off wind toggle with changing gusts.
-- Optional cursor interaction: nearby flakes scatter away from the pointer in Scatter mode. In Mitten mode, hold the left mouse button on accumulated snow and drag to collect it into a growing snowball; the overlay continues to pass desktop input through.
+- Optional cursor interaction: nearby flakes scatter away from the pointer in Scatter mode. In Mitten mode, hold the left mouse button on accumulated snow and drag to collect it into a growing snowball. Only the snow surface and finished snow objects intercept mouse input; the rest of the overlay remains click-through.
 - Snowballs are formed manually by collecting actual accumulated snow with the pointer. Release the left mouse button to drop the growing ball, then drag or roll it across the desktop.
 - Snowballs collide with each other using a lightweight circle-physics model. Stack three balls from largest at the bottom to smallest at the top to assemble a snowman.
-- The overlay remains click-through during snow gathering. WPF mouse input is enabled only over finished snowballs and snowmen so they can be dragged.
+- WPF mouse input is enabled only over the gatherable snow surface and finished snowballs/snowmen. Gathering captures the drag only until the button is released.
 - Weather settings with:
   - Light snow, normal snow, and blizzard presets.
   - Wind direction (left-to-right or right-to-left).
