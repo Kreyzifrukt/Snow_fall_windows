@@ -106,7 +106,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         InvalidateVisual();
     }
 
-    /// <summary>Creates a snowball only after the user has physically collected snow from the surface.</summary>
+    /// <summary>Returns true when the pointer is inside the snow-gathering hit-test band.</summary>
     private bool IsPointerOverGatherableSnow(WpfPoint position)
     {
         if (!_settings.CursorInteractionEnabled ||
