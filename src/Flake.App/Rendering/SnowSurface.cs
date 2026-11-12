@@ -156,7 +156,7 @@ internal sealed class SnowSurface
     /// Lets a rolling snowball collect a thin layer of snow from the surface.
     /// The returned value is the collected surface area, used to grow the ball.
     /// </summary>
-    public double CollectForSnowball(double x, double radius, double depth)
+    public double CollectSnow(double x, double radius, double depth)
     {
         if (IsClearing || !_hasSnow || _heights.Length < 2 || _sampleSpacing <= 0 || depth <= 0)
         {
