@@ -111,6 +111,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     {
         if (!_settings.CursorInteractionEnabled ||
             _settings.CursorMode != CursorInteractionMode.Mitten ||
+            _snowSurface.IsClearing ||
             _snowballs.Count + _snowmen.Count * 3 >= MaximumSnowballCount ||
             TryFindSnowballAt(position, out _))
         {
@@ -305,17 +306,17 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         if (_formingSnowball.Radius < MaximumSnowballRadius - 0.01)
         {
             for (var step = 1; step <= steps; step++)
-        {
-            var progress = (double)step / steps;
-            var x = Math.Clamp(_lastGatherPosition.X + dx * progress, 0, width);
-            var y = _lastGatherPosition.Y + dy * progress;
-            var surfaceHeight = _snowSurface.GetHeightAt(x);
-            var surfaceY = height - surfaceHeight;
-
-            if (surfaceHeight < 1.0 || y < surfaceY - 38 || y > surfaceY + 24)
             {
-                continue;
-            }
+                var progress = (double)step / steps;
+                var x = Math.Clamp(_lastGatherPosition.X + dx * progress, 0, width);
+                var y = _lastGatherPosition.Y + dy * progress;
+                var surfaceHeight = _snowSurface.GetHeightAt(x);
+                var surfaceY = height - surfaceHeight;
+
+                if (surfaceHeight < 1.0 || y < surfaceY - 38 || y > surfaceY + 24)
+                {
+                    continue;
+                }
 
                 collectedThisFrame += _snowSurface.CollectSnow(x, brushRadius, depth);
             }
