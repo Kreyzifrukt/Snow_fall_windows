@@ -305,7 +305,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 
         if (leftButtonDown && _isGatheringSnow)
         {
-            changed |= GatherSnowAlongCursorPath(width, delta);
+            changed |= GatherSnowAlongCursorPath(width, height, delta);
         }
 
         if (buttonReleased && _isGatheringSnow)
@@ -316,7 +316,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         return changed;
     }
 
-    private bool GatherSnowAlongCursorPath(double width, double delta)
+    private bool GatherSnowAlongCursorPath(double width, double height, double delta)
     {
         if (_formingSnowball is null || !_hasPointerPosition)
         {
@@ -335,6 +335,15 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         {
             var progress = (double)step / steps;
             var x = Math.Clamp(_lastGatherPosition.X + dx * progress, 0, width);
+            var y = _lastGatherPosition.Y + dy * progress;
+            var surfaceHeight = _snowSurface.GetHeightAt(x);
+            var surfaceY = height - surfaceHeight;
+
+            if (surfaceHeight < 1.0 || y < surfaceY - 38 || y > height + 20)
+            {
+                continue;
+            }
+
             collectedThisFrame += _snowSurface.CollectSnow(x, brushRadius, depth);
         }
 
