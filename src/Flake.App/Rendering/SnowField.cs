@@ -469,9 +469,9 @@ internal sealed class SnowField : FrameworkElement, IDisposable
                     }
 
                     _snowmen.Add(new Snowman(bottom, middle, top));
-                    _snowballs.RemoveAt(Math.Max(bottomIndex, Math.Max(middleIndex, topIndex)));
-                    _snowballs.RemoveAt(Math.Max(bottomIndex, Math.Min(middleIndex, topIndex)));
-                    _snowballs.RemoveAt(Math.Min(bottomIndex, Math.Min(middleIndex, topIndex)));
+                    _snowballs.Remove(bottom);
+                    _snowballs.Remove(middle);
+                    _snowballs.Remove(top);
                     return;
                 }
             }
