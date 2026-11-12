@@ -33,7 +33,7 @@ Mouse interaction uses two paths. Snow gathering uses WPF hit testing in a narro
 - Manual snow gathering, snowball formation, drag input, and snowman collision stability are implemented in the development branch but still require manual Windows verification.
 - Interaction with individual application windows is not implemented.
 - Multi-monitor and mixed-DPI behavior still requires broader testing.
-- Cursor position conversion, global button polling, and the mitten gathering brush need manual verification on multi-monitor and mixed-DPI desktops.
+- Cursor position conversion, snow-surface hit testing, and the mitten gathering brush need manual verification on multi-monitor and mixed-DPI desktops.
 
 ## User-facing maintenance improvements
 
@@ -42,4 +42,4 @@ Mouse interaction uses two paths. Snow gathering uses WPF hit testing in a narro
 - `WeatherSettings.ClearZonePercent` defines the portion of screen height that remains clear above the general snow layer. The surface converts it into a maximum accumulation depth. Future independent snowdrift objects should own separate bounds rather than reusing this general-layer limit.
 - `SnowSurface.BeginAnimatedClear` and `UpdateClearAnimation` gradually scale the current snow profile to zero. New deposits are ignored while the clearing animation is active, avoiding a race between the broom animation and falling particles.
 - Wind can be disabled. When enabled, its horizontal velocity varies gently over time to simulate gusts; the small per-particle drift remains when wind is disabled.
-- Cursor interaction can be disabled independently. Scatter mode repels nearby particles; Mitten mode draws a mitten marker and lets the user hold the left mouse button while moving across accumulated snow to form a ball. The overlay remains click-through because pointer and button state are read globally rather than captured by the window.
+- Cursor interaction can be disabled independently. Scatter mode repels nearby particles; Mitten mode draws a mitten marker and lets the user hold the left mouse button while moving across accumulated snow to form a ball. WPF captures the mouse only during that drag; the rest of the overlay remains click-through.
