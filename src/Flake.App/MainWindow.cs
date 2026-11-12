@@ -8,6 +8,7 @@ namespace Flake;
 public sealed class MainWindow : Window
 {
     private readonly SnowField _snowField;
+    private IntPtr _overlayHandle;
 
     public MainWindow()
     {
@@ -27,6 +28,7 @@ public sealed class MainWindow : Window
         Height = SystemParameters.VirtualScreenHeight;
 
         _snowField = new SnowField();
+        _snowField.ClickThroughChanged += OnClickThroughChanged;
         Content = _snowField;
         SourceInitialized += OnSourceInitialized;
         Closed += (_, _) => _snowField.Dispose();
@@ -38,9 +40,16 @@ public sealed class MainWindow : Window
 
     internal void ClearAccumulatedSnow() => _snowField.ClearAccumulatedSnow();
 
+    internal bool AddSnowball() => _snowField.AddSnowball();
+
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
-        var handle = new WindowInteropHelper(this).Handle;
-        NativeWindowStyles.MakeOverlayClickThrough(handle);
+        _overlayHandle = new WindowInteropHelper(this).Handle;
+        NativeWindowStyles.MakeOverlayClickThrough(_overlayHandle);
+    }
+
+    private void OnClickThroughChanged(bool clickThrough)
+    {
+        NativeWindowStyles.SetClickThrough(_overlayHandle, clickThrough);
     }
 }
