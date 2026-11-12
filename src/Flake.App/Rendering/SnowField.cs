@@ -32,10 +32,10 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     private bool _hasCursorPosition;
     private bool _hasPointerPosition;
     private bool _isClickThrough = true;
-    private bool _wasLeftButtonDown;
     private bool _isGatheringSnow;
     private double _gatheredSnowArea;
     private WpfPoint _lastGatherPosition;
+    private TimeSpan _lastGatherTime;
     private Snowball? _formingSnowball;
     private Snowball? _draggedSnowball;
     private Snowman? _draggedSnowman;
@@ -107,29 +107,30 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     }
 
     /// <summary>Creates a snowball only after the user has physically collected snow from the surface.</summary>
-    private bool CanStartSnowGathering(WpfPoint position, double width, double height)
+    private bool IsPointerOverGatherableSnow(WpfPoint position)
     {
-        if (_snowballs.Count + _snowmen.Count * 3 >= MaximumSnowballCount ||
+        if (!_settings.CursorInteractionEnabled ||
+            _settings.CursorMode != CursorInteractionMode.Mitten ||
             TryFindSnowballAt(position, out _))
         {
             return false;
         }
 
-        var x = Math.Clamp(position.X, 0, width);
+        var x = Math.Clamp(position.X, 0, Math.Max(ActualWidth, 1));
         var surfaceHeight = _snowSurface.GetHeightAt(x);
         if (surfaceHeight < 1.0)
         {
             return false;
         }
 
-        var surfaceY = height - surfaceHeight;
-        return position.Y >= surfaceY - 38 && position.Y <= height + 24;
+        var surfaceY = ActualHeight - surfaceHeight;
+        return position.Y >= surfaceY - 38 && position.Y <= surfaceY + 24;
     }
 
     protected override HitTestResult HitTestCore(PointHitTestParameters hitTestParameters)
     {
         var point = hitTestParameters.HitPoint;
-        return TryFindSnowballAt(point, out _)
+        return TryFindSnowballAt(point, out _) || IsPointerOverGatherableSnow(point)
             ? new PointHitTestResult(this, point)
             : null!;
     }
@@ -208,7 +209,6 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         var cursorChanged = UpdateCursorState();
         var width = Math.Max(ActualWidth, 1);
         var height = Math.Max(ActualHeight, 1);
-        var gatheringChanged = UpdateManualSnowGathering(width, height, delta);
 
         if (!_isPaused && _particles.Count > 0)
         {
@@ -265,66 +265,36 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 
         UpdateClickThroughState();
 
-        if (clearAnimationChanged || !_isPaused || cursorChanged || gatheringChanged || objectsChanged)
+        if (clearAnimationChanged || !_isPaused || cursorChanged || objectsChanged)
         {
             InvalidateVisual();
         }
     }
 
-    private bool UpdateManualSnowGathering(double width, double height, double delta)
+    private void StartSnowGathering(WpfPoint position)
     {
-        var leftButtonDown = CursorInput.IsLeftButtonDown();
-        var buttonPressed = leftButtonDown && !_wasLeftButtonDown;
-        var buttonReleased = !leftButtonDown && _wasLeftButtonDown;
-        _wasLeftButtonDown = leftButtonDown;
-
-        var canGather = _settings.CursorInteractionEnabled &&
-                        _settings.CursorMode == CursorInteractionMode.Mitten &&
-                        _hasPointerPosition;
-
-        if (!canGather)
+        _isGatheringSnow = true;
+        _gatheredSnowArea = 0;
+        _lastGatherPosition = position;
+        _lastGatherTime = _clock.Elapsed;
+        _formingSnowball = new Snowball
         {
-            return _isGatheringSnow && FinishSnowGathering(width, height);
-        }
-
-        var changed = false;
-        if (buttonPressed && !_isGatheringSnow &&
-            CanStartSnowGathering(_pointerPosition, width, height))
-        {
-            _isGatheringSnow = true;
-            _gatheredSnowArea = 0;
-            _lastGatherPosition = _pointerPosition;
-            _formingSnowball = new Snowball
-            {
-                X = _pointerPosition.X,
-                Y = _pointerPosition.Y,
-                Radius = 3.0
-            };
-            changed = true;
-        }
-
-        if (leftButtonDown && _isGatheringSnow)
-        {
-            changed |= GatherSnowAlongCursorPath(width, height, delta);
-        }
-
-        if (buttonReleased && _isGatheringSnow)
-        {
-            changed |= FinishSnowGathering(width, height);
-        }
-
-        return changed;
+            X = position.X + 28,
+            Y = position.Y + 8,
+            Radius = 0
+        };
+        SetClickThrough(false);
     }
 
-    private bool GatherSnowAlongCursorPath(double width, double height, double delta)
+    private bool GatherSnowAlongCursorPath(WpfPoint position, double width, double height, double delta)
     {
-        if (_formingSnowball is null || !_hasPointerPosition)
+        if (_formingSnowball is null)
         {
             return false;
         }
 
-        var dx = _pointerPosition.X - _lastGatherPosition.X;
-        var dy = _pointerPosition.Y - _lastGatherPosition.Y;
+        var dx = position.X - _lastGatherPosition.X;
+        var dy = position.Y - _lastGatherPosition.Y;
         var distance = Math.Sqrt(dx * dx + dy * dy);
         var steps = Math.Clamp((int)Math.Ceiling(distance / 9.0), 1, 24);
         var brushRadius = 24 + Math.Min(_formingSnowball.Radius, 40) * 0.30;
@@ -339,7 +309,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
             var surfaceHeight = _snowSurface.GetHeightAt(x);
             var surfaceY = height - surfaceHeight;
 
-            if (surfaceHeight < 1.0 || y < surfaceY - 38 || y > height + 20)
+            if (surfaceHeight < 1.0 || y < surfaceY - 38 || y > surfaceY + 24)
             {
                 continue;
             }
@@ -348,52 +318,53 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         }
 
         _gatheredSnowArea += collectedThisFrame;
-        var radius = Math.Clamp(
+        _formingSnowball.Radius = Math.Clamp(
             Math.Sqrt(_gatheredSnowArea / Math.PI) * 0.72,
-            3.0,
+            0,
             MaximumSnowballRadius);
-
-        _formingSnowball.Radius = radius;
         _formingSnowball.X = Math.Clamp(
-            _pointerPosition.X + 28,
-            radius + 2,
-            Math.Max(radius + 2, ActualWidth - radius - 2));
+            position.X + 28,
+            _formingSnowball.Radius + 2,
+            Math.Max(_formingSnowball.Radius + 2, width - _formingSnowball.Radius - 2));
         _formingSnowball.Y = Math.Clamp(
-            _pointerPosition.Y + 8,
-            radius + 2,
-            Math.Max(radius + 2, ActualHeight - radius - 2));
-
-        _lastGatherPosition = _pointerPosition;
+            position.Y + 8,
+            _formingSnowball.Radius + 2,
+            Math.Max(_formingSnowball.Radius + 2, height - _formingSnowball.Radius - 2));
+        _lastGatherPosition = position;
         return collectedThisFrame > 0.001 || distance > 0.5;
     }
 
-    private bool FinishSnowGathering(double width, double height)
+    private void FinishSnowGathering(double width, double height, bool releaseCapture = true)
     {
         if (!_isGatheringSnow)
         {
-            return false;
+            return;
         }
 
         _isGatheringSnow = false;
         var ball = _formingSnowball;
         _formingSnowball = null;
 
-        if (ball is null || ball.Radius < MinimumFormedSnowballRadius ||
-            _snowballs.Count + _snowmen.Count * 3 >= MaximumSnowballCount)
+        if (ball is not null && ball.Radius >= MinimumFormedSnowballRadius &&
+            _snowballs.Count + _snowmen.Count * 3 < MaximumSnowballCount)
         {
-            _gatheredSnowArea = 0;
-            return true;
+            ball.X = Math.Clamp(ball.X, ball.Radius + 2, Math.Max(ball.Radius + 2, width - ball.Radius - 2));
+            var surfaceY = height - _snowSurface.GetHeightAt(ball.X);
+            var restingCenterY = surfaceY - ball.Radius;
+            ball.Y = Math.Clamp(Math.Min(ball.Y, restingCenterY), ball.Radius + 2, height - ball.Radius);
+            ball.VelocityX = 0;
+            ball.VelocityY = 0;
+            _snowballs.Add(ball);
         }
 
-        ball.X = Math.Clamp(ball.X, ball.Radius + 2, Math.Max(ball.Radius + 2, width - ball.Radius - 2));
-        var surfaceY = height - _snowSurface.GetHeightAt(ball.X);
-        var restingCenterY = surfaceY - ball.Radius;
-        ball.Y = Math.Clamp(Math.Min(ball.Y, restingCenterY), ball.Radius + 2, height - ball.Radius);
-        ball.VelocityX = 0;
-        ball.VelocityY = 0;
-        _snowballs.Add(ball);
         _gatheredSnowArea = 0;
-        return true;
+        if (releaseCapture && IsMouseCaptured)
+        {
+            ReleaseMouseCapture();
+        }
+
+        UpdateClickThroughState();
+        InvalidateVisual();
     }
 
     private void UpdateSnowballWorld(double delta, double width, double height)
@@ -651,8 +622,9 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 
     private void UpdateClickThroughState()
     {
-        var pointerOverObject = _hasPointerPosition && IsPointerOverSnowball(_pointerPosition);
-        SetClickThrough(_draggedSnowball is null && !pointerOverObject);
+        var pointerOverInteractiveSnow = _hasPointerPosition &&
+            (IsPointerOverSnowball(_pointerPosition) || IsPointerOverGatherableSnow(_pointerPosition));
+        SetClickThrough(_draggedSnowball is null && !_isGatheringSnow && !pointerOverInteractiveSnow);
     }
 
     private void SetClickThrough(bool clickThrough)
@@ -720,23 +692,34 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     private void HandleMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         var position = e.GetPosition(this);
-        if (!TryFindSnowballAt(position, out var snowball) ||
-            !Mouse.Capture(this, CaptureMode.Element))
+        if (!Mouse.Capture(this, CaptureMode.Element))
         {
             return;
         }
 
-        _draggedSnowball = snowball;
-        _draggedSnowman = FindSnowman(snowball);
-        _dragOffset = new WpfPoint(position.X - snowball.X, position.Y - snowball.Y);
-        _lastDragPosition = position;
-        _lastDragTime = _clock.Elapsed;
-        snowball.VelocityX = 0;
-        snowball.VelocityY = 0;
-        if (_draggedSnowman is not null)
+        if (TryFindSnowballAt(position, out var snowball))
         {
-            _draggedSnowman.Bottom.VelocityX = 0;
-            _draggedSnowman.Bottom.VelocityY = 0;
+            _draggedSnowball = snowball;
+            _draggedSnowman = FindSnowman(snowball);
+            _dragOffset = new WpfPoint(position.X - snowball.X, position.Y - snowball.Y);
+            _lastDragPosition = position;
+            _lastDragTime = _clock.Elapsed;
+            snowball.VelocityX = 0;
+            snowball.VelocityY = 0;
+            if (_draggedSnowman is not null)
+            {
+                _draggedSnowman.Bottom.VelocityX = 0;
+                _draggedSnowman.Bottom.VelocityY = 0;
+            }
+        }
+        else if (IsPointerOverGatherableSnow(position))
+        {
+            StartSnowGathering(position);
+        }
+        else
+        {
+            ReleaseMouseCapture();
+            return;
         }
 
         SetClickThrough(false);
@@ -746,12 +729,25 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 
     private void HandleMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
+        var position = e.GetPosition(this);
+        if (_isGatheringSnow)
+        {
+            var now = _clock.Elapsed;
+            var elapsed = Math.Clamp((now - _lastGatherTime).TotalSeconds, 1.0 / 240.0, 0.05);
+            if (GatherSnowAlongCursorPath(position, Math.Max(ActualWidth, 1), Math.Max(ActualHeight, 1), elapsed))
+            {
+                InvalidateVisual();
+            }
+            _lastGatherTime = now;
+            e.Handled = true;
+            return;
+        }
+
         if (_draggedSnowball is null)
         {
             return;
         }
 
-        var position = e.GetPosition(this);
         var desiredCenter = new WpfPoint(position.X - _dragOffset.X, position.Y - _dragOffset.Y);
         var radius = _draggedSnowball.Radius;
         desiredCenter.X = Math.Clamp(desiredCenter.X, radius, Math.Max(radius, ActualWidth - radius));
@@ -794,14 +790,21 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 
     private void HandleMouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
     {
-        if (_draggedSnowball is null)
+        if (_draggedSnowball is null && !_isGatheringSnow)
         {
-            SetClickThrough(true);
+            UpdateClickThroughState();
         }
     }
 
     private void HandleMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        if (_isGatheringSnow)
+        {
+            FinishSnowGathering(Math.Max(ActualWidth, 1), Math.Max(ActualHeight, 1));
+            e.Handled = true;
+            return;
+        }
+
         if (_draggedSnowball is null)
         {
             return;
@@ -813,7 +816,11 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 
     private void HandleLostMouseCapture(object sender, System.Windows.Input.MouseEventArgs e)
     {
-        if (_draggedSnowball is not null)
+        if (_isGatheringSnow)
+        {
+            FinishSnowGathering(Math.Max(ActualWidth, 1), Math.Max(ActualHeight, 1), releaseCapture: false);
+        }
+        else if (_draggedSnowball is not null)
         {
             EndDrag(releaseCapture: false);
         }
