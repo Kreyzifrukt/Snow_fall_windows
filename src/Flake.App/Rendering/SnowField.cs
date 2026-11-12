@@ -14,6 +14,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 {
     private const double SnowballGravity = 1250.0;
     private const double MaximumSnowballRadius = 56.0;
+    private const double MinimumFormedSnowballRadius = 6.0;
     private const int MaximumSnowballCount = 24;
 
     private readonly List<Snowflake> _particles = [];
@@ -32,8 +33,12 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     private bool _hasCursorPosition;
     private bool _hasPreviousCursorPosition;
     private bool _hasPointerPosition;
-    private double _cursorMovementDistance;
     private bool _isClickThrough = true;
+    private bool _wasLeftButtonDown;
+    private bool _isGatheringSnow;
+    private double _gatheredSnowArea;
+    private WpfPoint _lastGatherPosition;
+    private Snowball? _formingSnowball;
     private Snowball? _draggedSnowball;
     private Snowman? _draggedSnowman;
     private WpfPoint _dragOffset;
@@ -104,31 +109,24 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         InvalidateVisual();
     }
 
-    /// <summary>Adds a new snowball near the lower-middle part of the desktop.</summary>
-    public bool AddSnowball()
+    /// <summary>Creates a snowball only after the user has physically collected snow from the surface.</summary>
+    private bool CanStartSnowGathering(WpfPoint position, double width, double height)
     {
-        if (!IsLoaded || _snowballs.Count + _snowmen.Count * 3 >= MaximumSnowballCount)
+        if (_snowballs.Count + _snowmen.Count * 3 >= MaximumSnowballCount ||
+            TryFindSnowballAt(position, out _))
         {
             return false;
         }
 
-        var width = Math.Max(ActualWidth, 1);
-        var height = Math.Max(ActualHeight, 1);
-        const double radius = 20.0;
-        var offset = (_snowballs.Count % 5 - 2) * (radius * 2.4);
-        var x = Math.Clamp(width * 0.5 + offset, radius + 2, Math.Max(radius + 2, width - radius - 2));
-        var surfaceY = height - _snowSurface.GetHeightAt(x);
-        var spawnHeight = Math.Min(180, height * 0.24);
-
-        _snowballs.Add(new Snowball
+        var x = Math.Clamp(position.X, 0, width);
+        var surfaceHeight = _snowSurface.GetHeightAt(x);
+        if (surfaceHeight < 1.0)
         {
-            X = x,
-            Y = Math.Max(radius + 2, surfaceY - radius - spawnHeight),
-            Radius = radius + _random.NextDouble() * 3.0
-        });
+            return false;
+        }
 
-        InvalidateVisual();
-        return true;
+        var surfaceY = height - surfaceHeight;
+        return position.Y >= surfaceY - 38 && position.Y <= height + 24;
     }
 
     protected override HitTestResult HitTestCore(PointHitTestParameters hitTestParameters)
@@ -181,6 +179,11 @@ internal sealed class SnowField : FrameworkElement, IDisposable
             }
         }
 
+        if (_formingSnowball is not null)
+        {
+            DrawSnowball(drawingContext, _formingSnowball);
+        }
+
         if (_settings.CursorInteractionEnabled &&
             _settings.CursorMode == CursorInteractionMode.Mitten &&
             _hasCursorPosition)
@@ -208,16 +211,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         var cursorChanged = UpdateCursorState();
         var width = Math.Max(ActualWidth, 1);
         var height = Math.Max(ActualHeight, 1);
-
-        var snowSwept = false;
-        if (_settings.CursorInteractionEnabled &&
-            _settings.CursorMode == CursorInteractionMode.Mitten &&
-            _hasCursorPosition &&
-            _hasPreviousCursorPosition &&
-            _cursorMovementDistance > 1.5)
-        {
-            snowSwept = SweepSnowAlongCursorPath(width, height, delta);
-        }
+        var gatheringChanged = UpdateManualSnowGathering(width, height, delta);
 
         if (!_isPaused && _particles.Count > 0)
         {
@@ -274,10 +268,126 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 
         UpdateClickThroughState();
 
-        if (clearAnimationChanged || !_isPaused || cursorChanged || snowSwept || objectsChanged)
+        if (clearAnimationChanged || !_isPaused || cursorChanged || gatheringChanged || objectsChanged)
         {
             InvalidateVisual();
         }
+    }
+
+    private bool UpdateManualSnowGathering(double width, double height, double delta)
+    {
+        var leftButtonDown = CursorInput.IsLeftButtonDown();
+        var buttonPressed = leftButtonDown && !_wasLeftButtonDown;
+        var buttonReleased = !leftButtonDown && _wasLeftButtonDown;
+        _wasLeftButtonDown = leftButtonDown;
+
+        var canGather = _settings.CursorInteractionEnabled &&
+                        _settings.CursorMode == CursorInteractionMode.Mitten &&
+                        _hasPointerPosition;
+
+        if (!canGather)
+        {
+            return _isGatheringSnow && FinishSnowGathering(width, height);
+        }
+
+        var changed = false;
+        if (buttonPressed && !_isGatheringSnow &&
+            CanStartSnowGathering(_pointerPosition, width, height))
+        {
+            _isGatheringSnow = true;
+            _gatheredSnowArea = 0;
+            _lastGatherPosition = _pointerPosition;
+            _formingSnowball = new Snowball
+            {
+                X = _pointerPosition.X,
+                Y = _pointerPosition.Y,
+                Radius = 3.0
+            };
+            changed = true;
+        }
+
+        if (leftButtonDown && _isGatheringSnow)
+        {
+            changed |= GatherSnowAlongCursorPath(width, delta);
+        }
+
+        if (buttonReleased && _isGatheringSnow)
+        {
+            changed |= FinishSnowGathering(width, height);
+        }
+
+        return changed;
+    }
+
+    private bool GatherSnowAlongCursorPath(double width, double delta)
+    {
+        if (_formingSnowball is null || !_hasPointerPosition)
+        {
+            return false;
+        }
+
+        var dx = _pointerPosition.X - _lastGatherPosition.X;
+        var dy = _pointerPosition.Y - _lastGatherPosition.Y;
+        var distance = Math.Sqrt(dx * dx + dy * dy);
+        var steps = Math.Clamp((int)Math.Ceiling(distance / 9.0), 1, 24);
+        var brushRadius = 24 + Math.Min(_formingSnowball.Radius, 40) * 0.30;
+        var depth = 0.85 * Math.Clamp(delta * 60, 0.35, 2.0);
+        var collectedThisFrame = 0.0;
+
+        for (var step = 0; step <= steps; step++)
+        {
+            var progress = (double)step / steps;
+            var x = Math.Clamp(_lastGatherPosition.X + dx * progress, 0, width);
+            collectedThisFrame += _snowSurface.CollectSnow(x, brushRadius, depth);
+        }
+
+        _gatheredSnowArea += collectedThisFrame;
+        var radius = Math.Clamp(
+            Math.Sqrt(_gatheredSnowArea / Math.PI) * 0.72,
+            3.0,
+            MaximumSnowballRadius);
+
+        _formingSnowball.Radius = radius;
+        _formingSnowball.X = Math.Clamp(
+            _pointerPosition.X + 28,
+            radius + 2,
+            Math.Max(radius + 2, ActualWidth - radius - 2));
+        _formingSnowball.Y = Math.Clamp(
+            _pointerPosition.Y + 8,
+            radius + 2,
+            Math.Max(radius + 2, ActualHeight - radius - 2));
+
+        _lastGatherPosition = _pointerPosition;
+        return collectedThisFrame > 0.001 || distance > 0.5;
+    }
+
+    private bool FinishSnowGathering(double width, double height)
+    {
+        if (!_isGatheringSnow)
+        {
+            return false;
+        }
+
+        _isGatheringSnow = false;
+        var ball = _formingSnowball;
+        _formingSnowball = null;
+
+        if (ball is null || ball.Radius < MinimumFormedSnowballRadius ||
+            _snowballs.Count + _snowmen.Count * 3 >= MaximumSnowballCount)
+        {
+            _gatheredSnowArea = 0;
+            return true;
+        }
+
+        ball.X = Math.Clamp(ball.X, ball.Radius + 2, Math.Max(ball.Radius + 2, width - ball.Radius - 2));
+        var surfaceY = height - _snowSurface.GetHeightAt(ball.X);
+        var restingCenterY = surfaceY - ball.Radius;
+        ball.Y = Math.Clamp(Math.Min(ball.Y, restingCenterY), ball.Radius + 2, height - ball.Radius);
+        ball.VelocityX = 0;
+        ball.VelocityY = 0;
+        _snowballs.Add(ball);
+        _gatheredSnowArea = 0;
+        return true;
     }
 
     private void UpdateSnowballWorld(double delta, double width, double height)
@@ -727,13 +837,14 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 
     private void ApplyCursorForce(Snowflake particle, double delta)
     {
-        if (!_settings.CursorInteractionEnabled || !_hasCursorPosition)
+        if (!_settings.CursorInteractionEnabled ||
+            !_hasCursorPosition ||
+            _settings.CursorMode == CursorInteractionMode.Mitten)
         {
             return;
         }
 
-        var mittenMode = _settings.CursorMode == CursorInteractionMode.Mitten;
-        var influenceRadius = mittenMode ? 112.0 : 88.0;
+        const double influenceRadius = 88.0;
         var dx = particle.X - _cursorPosition.X;
         var dy = particle.Y - _cursorPosition.Y;
         var distanceSquared = dx * dx + dy * dy;
@@ -745,40 +856,9 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 
         var distance = Math.Sqrt(distanceSquared);
         var falloff = 1 - distance / influenceRadius;
-        var force = falloff * (mittenMode ? 980.0 : 720.0) * delta;
+        var force = falloff * 720.0 * delta;
         particle.VelocityX += dx / distance * force;
         particle.VelocityY += dy / distance * force;
-    }
-
-    private bool SweepSnowAlongCursorPath(double width, double height, double delta)
-    {
-        var changed = false;
-        var start = _hasPreviousCursorPosition ? _previousCursorPosition : _cursorPosition;
-        var dx = _cursorPosition.X - start.X;
-        var dy = _cursorPosition.Y - start.Y;
-        var distance = Math.Sqrt(dx * dx + dy * dy);
-        var steps = Math.Clamp((int)Math.Ceiling(distance / 12.0), 1, 24);
-        var removalStrength = 1.35 * Math.Clamp(delta * 60, 0.25, 3.0);
-
-        for (var step = 0; step <= steps; step++)
-        {
-            var progress = (double)step / steps;
-            var x = Math.Clamp(start.X + dx * progress, 0, width);
-            var y = start.Y + dy * progress;
-            var surfaceHeight = _snowSurface.GetHeightAt(x);
-            if (surfaceHeight <= 0.5)
-            {
-                continue;
-            }
-
-            var surfaceY = height - surfaceHeight;
-            if (y >= surfaceY - 30 && y <= height + 36)
-            {
-                changed |= _snowSurface.Sweep(x, radius: 25, strength: removalStrength);
-            }
-        }
-
-        return changed;
     }
 
     private static void DrawSnowball(DrawingContext drawingContext, Snowball snowball)
