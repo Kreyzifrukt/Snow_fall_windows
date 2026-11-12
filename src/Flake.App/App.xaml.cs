@@ -10,9 +10,10 @@ public partial class App : Application
 {
     private MainWindow? _overlay;
     private NotifyIcon? _trayIcon;
-    private ToolStripMenuItem? _pauseMenuItem;
+    private ContextMenuStrip? _trayMenu;
     private SettingsWindow? _settingsWindow;
     private WeatherSettings _weatherSettings = new();
+    private bool _isPaused;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -27,37 +28,50 @@ public partial class App : Application
 
     private void InitializeTrayIcon()
     {
-        var menu = new ContextMenuStrip();
-        menu.Items.Add("Flake is running", null, (_, _) => { }).Enabled = false;
-        menu.Items.Add(new ToolStripSeparator());
-
-        _pauseMenuItem = new ToolStripMenuItem("Pause snowfall", null, (_, _) => TogglePause());
-        menu.Items.Add(_pauseMenuItem);
-        menu.Items.Add("Clear accumulated snow", null, (_, _) => _overlay?.ClearAccumulatedSnow());
-        menu.Items.Add("Weather settings...", null, (_, _) => ShowSettings());
-
-        var weatherMenu = new ToolStripMenuItem("Weather mode");
-        AddWeatherModeOption(weatherMenu, "Light snow", WeatherMode.LightSnow);
-        AddWeatherModeOption(weatherMenu, "Normal snow", WeatherMode.NormalSnow);
-        AddWeatherModeOption(weatherMenu, "Blizzard", WeatherMode.Blizzard);
-        menu.Items.Add(weatherMenu);
-
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Exit Flake", null, (_, _) => ExitApplication());
-
         _trayIcon = new NotifyIcon
         {
             Icon = SystemIcons.Application,
             Text = "Flake - desktop snowfall",
-            ContextMenuStrip = menu,
             Visible = true
         };
         _trayIcon.DoubleClick += (_, _) => TogglePause();
+        UpdateTrayMenu();
+    }
+
+    private void UpdateTrayMenu()
+    {
+        if (_trayIcon is null)
+        {
+            return;
+        }
+
+        string T(string key) => Localization.Get(_weatherSettings.Language, key);
+        _trayIcon.Text = T("trayTooltip");
+
+        var previousMenu = _trayMenu;
+        var menu = new ContextMenuStrip();
+        menu.Items.Add(T("trayRunning"), null, (_, _) => { }).Enabled = false;
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(T(_isPaused ? "trayResume" : "trayPause"), null, (_, _) => TogglePause());
+        menu.Items.Add(T("trayClear"), null, (_, _) => _overlay?.ClearAccumulatedSnow());
+        menu.Items.Add(T("traySettings"), null, (_, _) => ShowSettings());
+
+        var weatherMenu = new ToolStripMenuItem(T("trayWeatherMode"));
+        AddWeatherModeOption(weatherMenu, T("lightSnow"), WeatherMode.LightSnow);
+        AddWeatherModeOption(weatherMenu, T("normalSnow"), WeatherMode.NormalSnow);
+        AddWeatherModeOption(weatherMenu, T("blizzard"), WeatherMode.Blizzard);
+        menu.Items.Add(weatherMenu);
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(T("trayExit"), null, (_, _) => ExitApplication());
+
+        _trayMenu = menu;
+        _trayIcon.ContextMenuStrip = menu;
+        previousMenu?.Dispose();
     }
 
     private void AddWeatherModeOption(ToolStripMenuItem parent, string label, WeatherMode mode)
     {
-        parent.DropDownItems.Add(label, null, (_, _) => ApplyWeatherSettings(WeatherSettings.ForMode(mode)));
+        parent.DropDownItems.Add(label, null, (_, _) => ApplyWeatherSettings(_weatherSettings.WithModePreservingPreferences(mode)));
     }
 
     private void ShowSettings()
@@ -76,20 +90,26 @@ public partial class App : Application
 
     private void ApplyWeatherSettings(WeatherSettings settings)
     {
+        var languageChanged = _weatherSettings.Language != settings.Language;
         _weatherSettings = settings;
         _overlay?.ApplyWeatherSettings(settings);
-        _settingsWindow?.UpdateSettings(settings);
+        _settingsWindow?.UpdateSettings(settings, languageChanged);
+
+        if (languageChanged)
+        {
+            UpdateTrayMenu();
+        }
     }
 
     private void TogglePause()
     {
-        if (_overlay is null || _pauseMenuItem is null)
+        if (_overlay is null)
         {
             return;
         }
 
-        var isPaused = _overlay.TogglePause();
-        _pauseMenuItem.Text = isPaused ? "Resume snowfall" : "Pause snowfall";
+        _isPaused = _overlay.TogglePause();
+        UpdateTrayMenu();
     }
 
     private void ExitApplication()
@@ -101,6 +121,8 @@ public partial class App : Application
             _trayIcon = null;
         }
 
+        _trayMenu?.Dispose();
+        _trayMenu = null;
         _settingsWindow?.Close();
         _overlay?.Close();
         Shutdown();
@@ -109,6 +131,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _trayIcon?.Dispose();
+        _trayMenu?.Dispose();
         base.OnExit(e);
     }
 }

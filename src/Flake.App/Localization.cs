@@ -1,0 +1,172 @@
+namespace Flake;
+
+internal enum AppLanguage
+{
+    English,
+    Russian,
+    Ukrainian
+}
+
+internal static class Localization
+{
+    private static readonly IReadOnlyDictionary<string, string>[] Dictionaries =
+    [
+        new Dictionary<string, string>
+        {
+            ["settingsTitle"] = "Flake settings",
+            ["tabWeather"] = "Weather",
+            ["tabGuide"] = "Guide",
+            ["tabLanguage"] = "Language",
+            ["weatherMode"] = "Weather mode",
+            ["windEnabled"] = "Enable wind",
+            ["windDirection"] = "Wind direction",
+            ["windSpeed"] = "Wind speed",
+            ["flakeSize"] = "Snowflake size",
+            ["fallSpeed"] = "Falling speed",
+            ["clearZone"] = "Clear desktop area",
+            ["clearZoneHint"] = "The selected part of the screen stays free of accumulated snow.",
+            ["cursorInteractionEnabled"] = "Enable cursor interaction",
+            ["cursorInteractionMode"] = "Interaction mode",
+            ["cursorScatter"] = "Snow scatter",
+            ["cursorMitten"] = "Mitten",
+            ["close"] = "Close",
+            ["lightSnow"] = "Light snow",
+            ["normalSnow"] = "Normal snow",
+            ["blizzard"] = "Blizzard",
+            ["leftToRight"] = "Left to right",
+            ["rightToLeft"] = "Right to left",
+            ["small"] = "Small",
+            ["large"] = "Large",
+            ["slow"] = "Slow",
+            ["fast"] = "Fast",
+            ["guideTitle"] = "Using Flake",
+            ["guideIntro"] = "Flake adds animated snowfall over your desktop. The overlay is click-through, so you can keep using your windows normally.",
+            ["guidePause"] = "Pause or resume snowfall: use the Flake icon in the notification area, or double-click it.",
+            ["guideClear"] = "Clear snow: choose “Clear accumulated snow” in the tray menu. The snow layer will be swept away with an animation.",
+            ["guideSettings"] = "Weather settings: choose a preset or adjust wind, flake size, and falling speed. Changes apply immediately.",
+            ["guideSafeZone"] = "Clear desktop area: choose how much of the screen above the snow layer must remain clear. The snow cannot grow into that area.",
+            ["guideWind"] = "Wind: turn it on for changing horizontal gusts, or turn it off for a calmer snowfall.",
+            ["guideCursor"] = "Cursor interaction: snowflakes move away from the pointer. In Mitten mode, move the pointer across the snow layer to sweep it away. Desktop clicks continue to pass through the overlay.",
+            ["guideNote"] = "Settings are currently reset when Flake exits. Snow accumulation is also kept only for the current session.",
+            ["languageLabel"] = "Interface language",
+            ["languageHint"] = "Choose English, Russian, or Ukrainian. No restart is required.",
+            ["trayTooltip"] = "Flake - desktop snowfall",
+            ["trayRunning"] = "Flake is running",
+            ["trayPause"] = "Pause snowfall",
+            ["trayResume"] = "Resume snowfall",
+            ["trayClear"] = "Clear accumulated snow",
+            ["traySettings"] = "Settings...",
+            ["trayWeatherMode"] = "Weather mode",
+            ["trayExit"] = "Exit Flake"
+        },
+        new Dictionary<string, string>
+        {
+            ["settingsTitle"] = "Настройки Flake",
+            ["tabWeather"] = "Погода",
+            ["tabGuide"] = "Инструкция",
+            ["tabLanguage"] = "Язык",
+            ["weatherMode"] = "Режим погоды",
+            ["windEnabled"] = "Включить ветер",
+            ["windDirection"] = "Направление ветра",
+            ["windSpeed"] = "Скорость ветра",
+            ["flakeSize"] = "Размер снежинок",
+            ["fallSpeed"] = "Скорость падения",
+            ["clearZone"] = "Свободная зона экрана",
+            ["clearZoneHint"] = "Выбранная часть экрана над снегом останется свободной от накоплений.",
+            ["cursorInteractionEnabled"] = "Включить взаимодействие с курсором",
+            ["cursorInteractionMode"] = "Режим взаимодействия",
+            ["cursorScatter"] = "Разбрасывание снега",
+            ["cursorMitten"] = "Варежка",
+            ["close"] = "Закрыть",
+            ["lightSnow"] = "Лёгкий снег",
+            ["normalSnow"] = "Обычный снег",
+            ["blizzard"] = "Метель",
+            ["leftToRight"] = "Слева направо",
+            ["rightToLeft"] = "Справа налево",
+            ["small"] = "Маленький",
+            ["large"] = "Большой",
+            ["slow"] = "Медленно",
+            ["fast"] = "Быстро",
+            ["guideTitle"] = "Как пользоваться Flake",
+            ["guideIntro"] = "Flake добавляет анимированный снег поверх рабочего стола. Оверлей пропускает клики, поэтому окнами можно пользоваться как обычно.",
+            ["guidePause"] = "Пауза и продолжение снегопада: используйте значок Flake в области уведомлений или дважды нажмите на него.",
+            ["guideClear"] = "Уборка снега: выберите «Очистить накопленный снег» в меню значка. Слой будет плавно убран анимацией.",
+            ["guideSettings"] = "Настройки погоды: выберите режим или измените ветер, размер снежинок и скорость падения. Изменения применяются сразу.",
+            ["guideSafeZone"] = "Свободная зона экрана: задайте, какая часть экрана над снегом должна оставаться чистой. Снег не сможет подняться выше границы.",
+            ["guideWind"] = "Ветер: включите его для меняющихся горизонтальных порывов или отключите для более спокойного снегопада.",
+            ["guideCursor"] = "Взаимодействие с курсором: снежинки разлетаются от указателя. В режиме «Варежка» проводите курсором по снежному слою, чтобы смахивать снег. Окна и рабочий стол продолжают получать клики сквозь оверлей.",
+            ["guideNote"] = "Сейчас настройки сбрасываются при закрытии Flake. Накопленный снег также хранится только в течение текущего сеанса.",
+            ["languageLabel"] = "Язык интерфейса",
+            ["languageHint"] = "Выберите английский, русский или украинский. Перезапуск не требуется.",
+            ["trayTooltip"] = "Flake — снег на рабочем столе",
+            ["trayRunning"] = "Flake работает",
+            ["trayPause"] = "Приостановить снегопад",
+            ["trayResume"] = "Продолжить снегопад",
+            ["trayClear"] = "Очистить накопленный снег",
+            ["traySettings"] = "Настройки...",
+            ["trayWeatherMode"] = "Режим погоды",
+            ["trayExit"] = "Выйти из Flake"
+        },
+        new Dictionary<string, string>
+        {
+            ["settingsTitle"] = "Налаштування Flake",
+            ["tabWeather"] = "Погода",
+            ["tabGuide"] = "Інструкція",
+            ["tabLanguage"] = "Мова",
+            ["weatherMode"] = "Режим погоди",
+            ["windEnabled"] = "Увімкнути вітер",
+            ["windDirection"] = "Напрямок вітру",
+            ["windSpeed"] = "Швидкість вітру",
+            ["flakeSize"] = "Розмір сніжинок",
+            ["fallSpeed"] = "Швидкість падіння",
+            ["clearZone"] = "Вільна зона екрана",
+            ["clearZoneHint"] = "Вибрана частина екрана над снігом залишатиметься вільною від накопичень.",
+            ["cursorInteractionEnabled"] = "Увімкнути взаємодію з курсором",
+            ["cursorInteractionMode"] = "Режим взаємодії",
+            ["cursorScatter"] = "Розлітання снігу",
+            ["cursorMitten"] = "Рукавиця",
+            ["close"] = "Закрити",
+            ["lightSnow"] = "Легкий сніг",
+            ["normalSnow"] = "Звичайний сніг",
+            ["blizzard"] = "Заметіль",
+            ["leftToRight"] = "Зліва направо",
+            ["rightToLeft"] = "Справа наліво",
+            ["small"] = "Малий",
+            ["large"] = "Великий",
+            ["slow"] = "Повільно",
+            ["fast"] = "Швидко",
+            ["guideTitle"] = "Як користуватися Flake",
+            ["guideIntro"] = "Flake додає анімований сніг поверх робочого столу. Оверлей пропускає кліки, тому вікнами можна користуватися як зазвичай.",
+            ["guidePause"] = "Пауза та продовження снігопаду: скористайтеся значком Flake в області сповіщень або двічі натисніть на нього.",
+            ["guideClear"] = "Прибирання снігу: виберіть «Очистити накопичений сніг» у меню значка. Шар буде плавно прибраний анімацією.",
+            ["guideSettings"] = "Налаштування погоди: виберіть режим або змініть вітер, розмір сніжинок і швидкість падіння. Зміни застосовуються одразу.",
+            ["guideSafeZone"] = "Вільна зона екрана: задайте, яка частина екрана над снігом має залишатися чистою. Сніг не зможе піднятися вище межі.",
+            ["guideWind"] = "Вітер: увімкніть його для мінливих горизонтальних поривів або вимкніть для спокійнішого снігопаду.",
+            ["guideCursor"] = "Взаємодія з курсором: сніжинки розлітаються від вказівника. У режимі «Рукавиця» проводьте курсором по шару снігу, щоб змахувати його. Вікна й робочий стіл і далі отримують кліки крізь оверлей.",
+            ["guideNote"] = "Зараз налаштування скидаються після закриття Flake. Накопичений сніг також зберігається лише протягом поточного сеансу.",
+            ["languageLabel"] = "Мова інтерфейсу",
+            ["languageHint"] = "Виберіть англійську, російську або українську. Перезапуск не потрібен.",
+            ["trayTooltip"] = "Flake — сніг на робочому столі",
+            ["trayRunning"] = "Flake працює",
+            ["trayPause"] = "Призупинити снігопад",
+            ["trayResume"] = "Продовжити снігопад",
+            ["trayClear"] = "Очистити накопичений сніг",
+            ["traySettings"] = "Налаштування...",
+            ["trayWeatherMode"] = "Режим погоди",
+            ["trayExit"] = "Вийти з Flake"
+        }
+    ];
+
+    public static string Get(AppLanguage language, string key)
+    {
+        var dictionary = Dictionaries[(int)language];
+        return dictionary.TryGetValue(key, out var value) ? value : key;
+    }
+
+    public static string LanguageName(AppLanguage language) => language switch
+    {
+        AppLanguage.Russian => "Русский",
+        AppLanguage.Ukrainian => "Українська",
+        _ => "English"
+    };
+}

@@ -13,14 +13,25 @@ internal enum WindDirection
     RightToLeft
 }
 
+internal enum CursorInteractionMode
+{
+    Scatter,
+    Mitten
+}
+
 internal sealed record WeatherSettings
 {
     public WeatherMode Mode { get; init; } = WeatherMode.NormalSnow;
     public WindDirection WindDirection { get; init; } = WindDirection.LeftToRight;
+    public Flake.AppLanguage Language { get; init; } = Flake.AppLanguage.English;
     public int ParticleCount { get; init; } = 170;
     public double WindSpeed { get; init; } = 18;
     public double FlakeSize { get; init; } = 1.0;
     public double FallSpeed { get; init; } = 1.0;
+    public double ClearZonePercent { get; init; } = 65;
+    public bool WindEnabled { get; init; } = true;
+    public bool CursorInteractionEnabled { get; init; } = true;
+    public CursorInteractionMode CursorMode { get; init; } = CursorInteractionMode.Scatter;
 
     public static WeatherSettings ForMode(WeatherMode mode) => mode switch
     {
@@ -42,4 +53,18 @@ internal sealed record WeatherSettings
         },
         _ => new WeatherSettings()
     };
+
+    public WeatherSettings WithModePreservingPreferences(WeatherMode mode)
+    {
+        var preset = ForMode(mode);
+        return preset with
+        {
+            WindDirection = WindDirection,
+            WindEnabled = WindEnabled,
+            ClearZonePercent = ClearZonePercent,
+            Language = Language,
+            CursorInteractionEnabled = CursorInteractionEnabled,
+            CursorMode = CursorMode
+        };
+    }
 }

@@ -40,9 +40,9 @@ if (-not $remoteHead) {
     throw 'The remote main branch could not be resolved.'
 }
 
-$remoteHistory = @(git rev-list --first-parent --max-count=3 refs/remotes/origin/main)
-if ($remoteHistory.Count -lt 3 -or $remoteHistory[2] -ne $knownImportCommit) {
-    throw 'The remote main branch no longer has the expected initial-import history. Refusing to replace it; inspect the remote branch manually.'
+$comparisonStatus = gh api "repos/$repository/compare/$knownImportCommit...$remoteHead" --jq '.status'
+if ($LASTEXITCODE -ne 0 -or $comparisonStatus -notin @('ahead', 'identical')) {
+    throw 'The remote main branch is not descended from the expected initial import. Refusing to replace it; inspect the remote branch manually.'
 }
 
 Write-Host "The remote branch contains the temporary source-import history for $repository."

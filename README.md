@@ -16,7 +16,10 @@ A lightweight desktop snowfall overlay for Windows 10 and Windows 11, built with
 - Notification-area (system tray) menu to pause/resume, select a weather preset, open settings, or exit.
 - Snow accumulates along the bottom edge as flakes land, creating a gently uneven surface. The layer is drawn as part of the transparent overlay and does not intercept mouse clicks.
 - System-tray command to clear all accumulated snow without restarting the app.
-- Weather settings window with:
+- Settings window with Weather, Guide, and Language tabs. The interface is available in English (default), Russian, and Ukrainian.
+- Animated snow cleanup, a configurable clear desktop zone, and an on/off wind toggle with changing gusts.
+- Optional cursor interaction: nearby flakes scatter away from the pointer; Mitten mode lets you sweep accumulated snow by moving the pointer across it, without blocking desktop clicks.
+- Weather settings with:
   - Light snow, normal snow, and blizzard presets.
   - Wind direction (left-to-right or right-to-left).
   - Adjustable wind speed.
@@ -24,7 +27,7 @@ A lightweight desktop snowfall overlay for Windows 10 and Windows 11, built with
   - Adjustable falling speed.
 - No administrator privileges required.
 
-Weather settings currently apply immediately but are not persisted after the application exits. The snow layer is kept in memory and resets when Flake exits. The snow layer is capped to keep it from covering most of the screen.
+Weather, language, and cursor-interaction settings currently apply immediately but are not persisted after the application exits. The snow layer is kept in memory and resets when Flake exits. The configurable clear desktop zone limits the general snow layer; future independent snowdrifts will have their own bounds.
 
 ## Requirements
 
