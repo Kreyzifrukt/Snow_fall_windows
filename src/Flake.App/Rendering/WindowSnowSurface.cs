@@ -176,9 +176,10 @@ internal sealed class WindowSnowSurface
 
     public void Draw(DrawingContext context)
     {
-        foreach (var patch in _orderedPatches)
+        // EnumWindows returns front-to-back; draw back-to-front so foreground edges stay visible.
+        for (var index = _orderedPatches.Count - 1; index >= 0; index--)
         {
-            patch.Draw(context);
+            _orderedPatches[index].Draw(context);
         }
     }
 
