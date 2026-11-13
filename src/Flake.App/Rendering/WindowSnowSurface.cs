@@ -233,6 +233,7 @@ internal sealed class WindowSnowSurface
 
 internal sealed class WindowSnowPatch
 {
+    private const double SampleSpacing = 8;
     private static readonly SolidColorBrush SnowBrush = CreateBrush();
     private static readonly WpfPen EdgePen = CreatePen();
     private double[] _top = [];
