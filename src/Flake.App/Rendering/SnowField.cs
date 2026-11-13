@@ -429,11 +429,13 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 
         var surfaceHeight = _snowSurface.GetHeightAt(snowball.X);
         var groundCenterY = height - surfaceHeight - radius;
-        var isGrounded = snowball.Y >= groundCenterY - 1.0 && snowball.VelocityY >= -35;
+        var isWindowGrounded = _windowSnowSurface.TryGetTopSurfaceAt(snowball.X, snowball.Y, radius, out var windowSurfaceY) &&
+            snowball.VelocityY >= -35;
+        var isGrounded = isWindowGrounded || (snowball.Y >= groundCenterY - 1.0 && snowball.VelocityY >= -35);
 
         if (isGrounded)
         {
-            snowball.Y = groundCenterY;
+            snowball.Y = isWindowGrounded ? windowSurfaceY - radius : groundCenterY;
             snowball.VelocityY = 0;
             snowball.VelocityX += -SnowballGravity * slope / (1 + slope * slope) * delta;
             snowball.VelocityX *= Math.Exp(-1.65 * delta);
@@ -643,7 +645,9 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     private bool IsRestingOnSurface(Snowball snowball, double height)
     {
         var expectedY = height - _snowSurface.GetHeightAt(snowball.X) - snowball.Radius;
-        return Math.Abs(snowball.Y - expectedY) <= 5 &&
+        var restsOnDesktop = Math.Abs(snowball.Y - expectedY) <= 5;
+        var restsOnWindow = _windowSnowSurface.TryGetTopSurfaceAt(snowball.X, snowball.Y, snowball.Radius, out _);
+        return (restsOnDesktop || restsOnWindow) &&
                Math.Abs(snowball.VelocityY) < 60 &&
                Math.Abs(snowball.VelocityX) < 75;
     }
