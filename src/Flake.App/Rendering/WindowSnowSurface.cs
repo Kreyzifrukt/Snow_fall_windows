@@ -31,13 +31,16 @@ internal sealed class WindowSnowSurface
     private readonly Dictionary<IntPtr, WindowSnowPatch> _patches = [];
     private List<WindowSnowPatch> _orderedPatches = [];
 
+    public event Action<double, double, double>? SnowDropped;
+
     public void Refresh(Func<WpfPoint, WpfPoint> screenToLocal, int ownProcessId, double width, double height)
     {
         var ordered = new List<WindowSnowPatch>();
         EnumWindows((handle, _) =>
         {
             if (!IsWindowVisible(handle) || IsIconic(handle) ||
-                GetWindow(handle, OwnerWindow) != IntPtr.Zero)
+                GetWindow(handle, OwnerWindow) != IntPtr.Zero ||
+                IsDesktopHostWindow(handle))
             {
                 return true;
             }
@@ -60,6 +63,7 @@ internal sealed class WindowSnowSurface
             if (!_patches.TryGetValue(handle, out var patch))
             {
                 patch = new WindowSnowPatch(handle, bounds);
+                patch.SnowDropped += (x, y, amount) => SnowDropped?.Invoke(x, y, amount);
                 _patches.Add(handle, patch);
             }
             else
@@ -74,6 +78,7 @@ internal sealed class WindowSnowSurface
         var activeHandles = ordered.Select(patch => patch.Handle).ToHashSet();
         foreach (var staleHandle in _patches.Keys.Where(handle => !activeHandles.Contains(handle)).ToArray())
         {
+            _patches[staleHandle].ReleaseAllSnow();
             _patches.Remove(staleHandle);
         }
 
@@ -169,6 +174,13 @@ internal sealed class WindowSnowSurface
         }
     }
 
+    private static bool IsDesktopHostWindow(IntPtr handle)
+    {
+        var buffer = new System.Text.StringBuilder(128);
+        _ = GetClassName(handle, buffer, buffer.Capacity);
+        return buffer.ToString() is "Progman" or "WorkerW" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd";
+    }
+
     private delegate bool EnumWindowsCallback(IntPtr handle, IntPtr parameter);
 
     [DllImport("user32.dll")]
@@ -176,6 +188,9 @@ internal sealed class WindowSnowSurface
 
     [DllImport("user32.dll")]
     private static extern bool IsWindowVisible(IntPtr handle);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetClassName(IntPtr handle, System.Text.StringBuilder className, int maxCount);
 
     [DllImport("user32.dll")]
     private static extern bool IsIconic(IntPtr handle);
@@ -209,6 +224,7 @@ internal sealed class WindowSnowPatch
 
     public IntPtr Handle { get; }
     public Rect Bounds { get; private set; }
+    public event Action<double, double, double>? SnowDropped;
 
     public WindowSnowPatch(IntPtr handle, Rect bounds)
     {
@@ -219,16 +235,48 @@ internal sealed class WindowSnowPatch
 
     public void UpdateBounds(Rect bounds)
     {
-        if (Math.Abs(bounds.Width - Bounds.Width) > 0.5)
+        var previous = Bounds;
+        if (Math.Abs(bounds.Width - previous.Width) > 0.5)
         {
-            _top = Resample(_top, Math.Max(2, (int)Math.Ceiling(bounds.Width / SampleSpacing) + 1));
+            var oldTop = _top;
+            var nextTop = new double[Math.Max(2, (int)Math.Ceiling(bounds.Width / SampleSpacing) + 1)];
+            for (var i = 0; i < oldTop.Length; i++)
+            {
+                var oldX = previous.Left + i * previous.Width / Math.Max(1, oldTop.Length - 1);
+                if (oldX < bounds.Left || oldX > bounds.Right)
+                {
+                    if (oldTop[i] > 0.25) SnowDropped?.Invoke(oldX, previous.Top - oldTop[i], oldTop[i]);
+                    continue;
+                }
+                var target = (int)Math.Round((oldX - bounds.Left) / Math.Max(1, bounds.Width) * (nextTop.Length - 1));
+                nextTop[Math.Clamp(target, 0, nextTop.Length - 1)] = Math.Max(nextTop[Math.Clamp(target, 0, nextTop.Length - 1)], oldTop[i]);
+            }
+            _top = nextTop;
         }
 
-        if (Math.Abs(bounds.Height - Bounds.Height) > 0.5)
+        if (Math.Abs(bounds.Height - previous.Height) > 0.5)
         {
+            var oldLeft = _left;
+            var oldRight = _right;
             var count = Math.Max(2, (int)Math.Ceiling(bounds.Height / SampleSpacing) + 1);
-            _left = Resample(_left, count);
-            _right = Resample(_right, count);
+            var nextLeft = new double[count];
+            var nextRight = new double[count];
+            for (var i = 0; i < oldLeft.Length; i++)
+            {
+                var oldY = previous.Top + i * previous.Height / Math.Max(1, oldLeft.Length - 1);
+                if (oldY < bounds.Top || oldY > bounds.Bottom)
+                {
+                    if (oldLeft[i] > 0.25) SnowDropped?.Invoke(previous.Left - oldLeft[i], oldY, oldLeft[i]);
+                    if (oldRight[i] > 0.25) SnowDropped?.Invoke(previous.Right + oldRight[i], oldY, oldRight[i]);
+                    continue;
+                }
+                var target = (int)Math.Round((oldY - bounds.Top) / Math.Max(1, bounds.Height) * (count - 1));
+                target = Math.Clamp(target, 0, count - 1);
+                nextLeft[target] = Math.Max(nextLeft[target], oldLeft[i]);
+                nextRight[target] = Math.Max(nextRight[target], oldRight[i]);
+            }
+            _left = nextLeft;
+            _right = nextRight;
         }
 
         Bounds = bounds;
@@ -270,6 +318,24 @@ internal sealed class WindowSnowPatch
         Array.Clear(_top, 0, _top.Length);
         Array.Clear(_left, 0, _left.Length);
         Array.Clear(_right, 0, _right.Length);
+    }
+
+    public void ReleaseAllSnow()
+    {
+        var topStep = Bounds.Width / Math.Max(1, _top.Length - 1);
+        for (var i = 0; i < _top.Length; i++)
+        {
+            if (_top[i] > 0.25) SnowDropped?.Invoke(Bounds.Left + i * topStep, Bounds.Top - _top[i], _top[i]);
+        }
+
+        var sideStep = Bounds.Height / Math.Max(1, _left.Length - 1);
+        for (var i = 0; i < _left.Length; i++)
+        {
+            var y = Bounds.Top + i * sideStep;
+            if (_left[i] > 0.25) SnowDropped?.Invoke(Bounds.Left - _left[i], y, _left[i]);
+            if (_right[i] > 0.25) SnowDropped?.Invoke(Bounds.Right + _right[i], y, _right[i]);
+        }
+        Clear();
     }
 
     private void ResizeProfiles(double width, double height)
