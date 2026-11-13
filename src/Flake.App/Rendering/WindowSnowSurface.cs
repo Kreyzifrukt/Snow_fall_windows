@@ -85,6 +85,22 @@ internal sealed class WindowSnowSurface
         _orderedPatches = ordered;
     }
 
+    public bool TryGetTopSurfaceAt(double x, double centerY, double radius, out double surfaceY)
+    {
+        foreach (var patch in _orderedPatches)
+        {
+            if (x < patch.Bounds.Left || x > patch.Bounds.Right) continue;
+            var candidate = patch.Bounds.Top - patch.GetTopHeight(x);
+            if (Math.Abs(centerY + radius - candidate) <= 7)
+            {
+                surfaceY = candidate;
+                return true;
+            }
+        }
+        surfaceY = 0;
+        return false;
+    }
+
     public bool TryLandFlake(double x, double oldBottom, double newBottom, double radius)
     {
         foreach (var patch in _orderedPatches)
