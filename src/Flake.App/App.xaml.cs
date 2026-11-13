@@ -14,6 +14,7 @@ public partial class App : Application
     private SettingsWindow? _settingsWindow;
     private WeatherSettings _weatherSettings = new();
     private bool _isPaused;
+    private bool _isGenerating = true;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -53,6 +54,7 @@ public partial class App : Application
         menu.Items.Add(T("trayRunning"), null, (_, _) => { }).Enabled = false;
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(T(_isPaused ? "trayResume" : "trayPause"), null, (_, _) => TogglePause());
+        menu.Items.Add(T(_isGenerating ? "trayStopSnowfall" : "trayStartSnowfall"), null, (_, _) => ToggleSnowfallGeneration());
         menu.Items.Add(T("trayClear"), null, (_, _) => _overlay?.ClearAccumulatedSnow());
         menu.Items.Add(T("trayClearBalls"), null, (_, _) => _overlay?.ClearSnowballs());
         menu.Items.Add(T("trayClearAllSnow"), null, (_, _) => _overlay?.ClearAllSnow());
@@ -111,6 +113,17 @@ public partial class App : Application
         }
 
         _isPaused = _overlay.TogglePause();
+        UpdateTrayMenu();
+    }
+
+    private void ToggleSnowfallGeneration()
+    {
+        if (_overlay is null)
+        {
+            return;
+        }
+
+        _isGenerating = _overlay.ToggleSnowfallGeneration();
         UpdateTrayMenu();
     }
 

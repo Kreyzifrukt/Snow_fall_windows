@@ -87,7 +87,8 @@ internal sealed class SnowSurface
             for (var i = 0; i < _heights.Length; i++)
             {
                 var newX = i * _sampleSpacing;
-                var oldPosition = Math.Clamp(newX / oldWidth * (oldHeights.Length - 1), 0, oldHeights.Length - 1);
+                var normalizedX = Math.Clamp(newX / _width, 0, 1);
+                var oldPosition = normalizedX * (oldHeights.Length - 1);
                 var leftIndex = (int)Math.Floor(oldPosition);
                 var rightIndex = Math.Min(leftIndex + 1, oldHeights.Length - 1);
                 var blend = oldPosition - leftIndex;

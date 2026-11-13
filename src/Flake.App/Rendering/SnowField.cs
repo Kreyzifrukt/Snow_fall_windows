@@ -23,12 +23,12 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     private readonly List<Snowman> _snowmen = [];
     private readonly SnowSurface _snowSurface = new();
     private readonly WindowSnowSurface _windowSnowSurface = new();
+    private readonly SnowfallState _snowfallState = new();
     private TimeSpan _lastWindowRefresh;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly Random _random = new();
     private TimeSpan _lastFrame;
     private WeatherSettings _settings = new();
-    private bool _isPaused;
     private bool _disposed;
     private WpfPoint _cursorPosition;
     private WpfPoint _pointerPosition;
@@ -53,7 +53,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         IsHitTestVisible = true;
         _windowSnowSurface.SnowDropped += SpawnFallingSnow;
         Loaded += (_, _) => ResetParticles();
-        SizeChanged += (_, _) => ResetParticles();
+        SizeChanged += (_, _) => HandleViewportSizeChanged();
         MouseLeftButtonDown += HandleMouseLeftButtonDown;
         MouseMove += HandleMouseMove;
         MouseLeave += HandleMouseLeave;
@@ -64,10 +64,30 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 
     public bool TogglePause()
     {
-        _isPaused = !_isPaused;
+        var isPaused = _snowfallState.TogglePause();
         _lastFrame = _clock.Elapsed;
         InvalidateVisual();
-        return _isPaused;
+        return isPaused;
+    }
+
+    public bool ToggleSnowfallGeneration()
+    {
+        var isGenerating = _snowfallState.ToggleGeneration();
+        if (isGenerating && IsLoaded)
+        {
+            while (_particles.Count < _settings.ParticleCount)
+            {
+                _particles.Add(CreateParticle(randomY: true));
+            }
+
+            if (_particles.Count > _settings.ParticleCount)
+            {
+                _particles.RemoveRange(_settings.ParticleCount, _particles.Count - _settings.ParticleCount);
+            }
+        }
+
+        InvalidateVisual();
+        return isGenerating;
     }
 
     public void ApplySettings(WeatherSettings settings)
@@ -92,7 +112,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
             return;
         }
 
-        if (_settings.ParticleCount != previousParticleCount)
+        if (_settings.ParticleCount != previousParticleCount && _snowfallState.IsGenerating)
         {
             while (_particles.Count < _settings.ParticleCount)
             {
@@ -221,13 +241,14 @@ internal sealed class SnowField : FrameworkElement, IDisposable
             _lastWindowRefresh = now;
         }
 
-        if (!_isPaused && _particles.Count > 0)
+        if (_snowfallState.ShouldAdvanceExistingParticles && _particles.Count > 0)
         {
             var elapsed = now.TotalSeconds;
             var windSign = _settings.WindDirection == WindDirection.LeftToRight ? 1 : -1;
 
-            foreach (var particle in _particles)
+            for (var particleIndex = _particles.Count - 1; particleIndex >= 0; particleIndex--)
             {
+                var particle = _particles[particleIndex];
                 var radius = particle.Radius * _settings.FlakeSize;
                 var gust = 0.65 + 0.35 * Math.Sin(elapsed * 0.42 + particle.Phase * 0.2);
                 var windVelocity = _settings.WindEnabled ? _settings.WindSpeed * windSign * gust : 0;
@@ -249,13 +270,16 @@ internal sealed class SnowField : FrameworkElement, IDisposable
                     nextX = -radius;
                 }
 
-                particle.X = nextX;
-                if (_windowSnowSurface.TryLandFlake(nextX, particle.Y + radius, nextY + radius, radius))
+                if (_windowSnowSurface.TryLandFlake(particle.X, particle.Y + radius, nextX, nextY + radius, radius, width))
                 {
-                    particle.Y = -radius - _random.NextDouble() * height * 0.15;
-                    particle.X = _random.NextDouble() * width;
-                    particle.VelocityX = 0;
-                    particle.VelocityY = 0;
+                    if (_snowfallState.ShouldRespawnLandedParticles)
+                    {
+                        RespawnParticle(particle, radius, width, height);
+                    }
+                    else
+                    {
+                        _particles.RemoveAt(particleIndex);
+                    }
                     continue;
                 }
 
@@ -265,19 +289,30 @@ internal sealed class SnowField : FrameworkElement, IDisposable
                 if (nextY + radius >= surfaceY)
                 {
                     _snowSurface.Accumulate(Math.Clamp(nextX, 0, width), radius);
-                    particle.Y = -radius - _random.NextDouble() * height * 0.15;
-                    particle.X = _random.NextDouble() * width;
-                    particle.VelocityX = 0;
-                    particle.VelocityY = 0;
+                    if (_snowfallState.ShouldRespawnLandedParticles)
+                    {
+                        RespawnParticle(particle, radius, width, height);
+                    }
+                    else
+                    {
+                        _particles.RemoveAt(particleIndex);
+                    }
                     continue;
                 }
 
+                if (nextY - radius > height)
+                {
+                    _particles.RemoveAt(particleIndex);
+                    continue;
+                }
+
+                particle.X = nextX;
                 particle.Y = nextY;
             }
         }
 
         var objectsChanged = false;
-        if (!_isPaused && (_snowballs.Count > 0 || _snowmen.Count > 0))
+        if (_snowfallState.ShouldAdvanceExistingParticles && (_snowballs.Count > 0 || _snowmen.Count > 0))
         {
             UpdateSnowballWorld(delta, width, height);
             objectsChanged = true;
@@ -285,10 +320,18 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 
         UpdateClickThroughState();
 
-        if (clearAnimationChanged || !_isPaused || cursorChanged || objectsChanged)
+        if (clearAnimationChanged || _snowfallState.ShouldAdvanceExistingParticles || cursorChanged || objectsChanged)
         {
             InvalidateVisual();
         }
+    }
+
+    private void RespawnParticle(Snowflake particle, double radius, double width, double height)
+    {
+        particle.Y = -radius - _random.NextDouble() * height * 0.15;
+        particle.X = _random.NextDouble() * width;
+        particle.VelocityX = 0;
+        particle.VelocityY = 0;
     }
 
     private void StartSnowGathering(WpfPoint position)
@@ -1160,9 +1203,30 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         _snowSurface.Resize(ActualWidth, ActualHeight);
         ClampInteractiveObjectsToViewport(ActualWidth, ActualHeight);
         _particles.Clear();
-        for (var i = 0; i < _settings.ParticleCount; i++)
+        for (var i = 0; _snowfallState.IsGenerating && i < _settings.ParticleCount; i++)
         {
             _particles.Add(CreateParticle(randomY: true));
+        }
+
+        _lastFrame = _clock.Elapsed;
+        InvalidateVisual();
+    }
+
+    private void HandleViewportSizeChanged()
+    {
+        if (!IsLoaded || ActualWidth <= 0 || ActualHeight <= 0)
+        {
+            return;
+        }
+
+        var width = ActualWidth;
+        var height = ActualHeight;
+        _snowSurface.Resize(width, height);
+        ClampInteractiveObjectsToViewport(width, height);
+        foreach (var particle in _particles)
+        {
+            particle.X = Math.Clamp(particle.X, -particle.Radius, width + particle.Radius);
+            particle.Y = Math.Clamp(particle.Y, -particle.Radius, height + particle.Radius);
         }
 
         _lastFrame = _clock.Elapsed;

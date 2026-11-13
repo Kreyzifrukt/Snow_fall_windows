@@ -10,5 +10,7 @@
     <RootNamespace>Flake</RootNamespace>
     <AssemblyName>Flake</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- WPF needs process DPI awareness from the manifest before its startup; WFO0003 assumes a WinForms bootstrap. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
   </PropertyGroup>
 </Project>

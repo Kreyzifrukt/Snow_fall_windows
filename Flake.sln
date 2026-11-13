@@ -4,6 +4,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Flake.App", "src\Flake.App\Flake.App.csproj", "{B51CCB39-EC6F-44B7-A6BB-2C0C5AEF9DA1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Flake.Tests", "tests\Flake.Tests\Flake.Tests.csproj", "{EBF6B2AD-4D38-4EE6-A6F5-85213E197D67}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -14,5 +16,9 @@ Global
 		{B51CCB39-EC6F-44B7-A6BB-2C0C5AEF9DA1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B51CCB39-EC6F-44B7-A6BB-2C0C5AEF9DA1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B51CCB39-EC6F-44B7-A6BB-2C0C5AEF9DA1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EBF6B2AD-4D38-4EE6-A6F5-85213E197D67}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EBF6B2AD-4D38-4EE6-A6F5-85213E197D67}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EBF6B2AD-4D38-4EE6-A6F5-85213E197D67}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EBF6B2AD-4D38-4EE6-A6F5-85213E197D67}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

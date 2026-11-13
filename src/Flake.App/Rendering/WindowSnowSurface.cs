@@ -28,17 +28,48 @@ internal sealed class WindowSnowSurface
 {
     private const double SampleSpacing = 8;
     private const uint OwnerWindow = 4;
+    private const int DwmwaExtendedFrameBounds = 9;
+    private const int DwmwaCloaked = 14;
     private readonly Dictionary<IntPtr, WindowSnowPatch> _patches = [];
     private List<WindowSnowPatch> _orderedPatches = [];
 
     public event Action<double, double, double>? SnowDropped;
+
+    public static bool IsFullscreenForegroundWindow(int ownProcessId)
+    {
+        var handle = GetForegroundWindow();
+        if (handle == IntPtr.Zero || !IsWindowVisible(handle))
+        {
+            return false;
+        }
+
+        GetWindowThreadProcessId(handle, out var processId);
+        if (processId == (uint)ownProcessId || !TryGetVisibleBounds(handle, out var windowBounds))
+        {
+            return false;
+        }
+
+        var monitor = MonitorFromWindow(handle, 2);
+        var monitorInfo = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+        if (monitor == IntPtr.Zero || !GetMonitorInfo(monitor, ref monitorInfo))
+        {
+            return false;
+        }
+
+        var bounds = monitorInfo.Monitor;
+        var width = bounds.Right - bounds.Left;
+        var height = bounds.Bottom - bounds.Top;
+        return width > 0 && height > 0 &&
+            windowBounds.Left <= bounds.Left + 2 && windowBounds.Top <= bounds.Top + 2 &&
+            windowBounds.Right >= bounds.Right - 2 && windowBounds.Bottom >= bounds.Bottom - 2;
+    }
 
     public void Refresh(Func<WpfPoint, WpfPoint> screenToLocal, int ownProcessId, double width, double height)
     {
         var ordered = new List<WindowSnowPatch>();
         EnumWindows((handle, _) =>
         {
-            if (!IsWindowVisible(handle) || IsIconic(handle) ||
+            if (!IsWindowVisible(handle) || IsIconic(handle) || IsCloaked(handle) ||
                 GetWindow(handle, OwnerWindow) != IntPtr.Zero ||
                 IsDesktopHostWindow(handle))
             {
@@ -46,14 +77,17 @@ internal sealed class WindowSnowSurface
             }
 
             GetWindowThreadProcessId(handle, out var processId);
-            if (processId == (uint)ownProcessId || !GetWindowRect(handle, out var nativeRect))
+            if (processId == (uint)ownProcessId || !TryGetVisibleBounds(handle, out var nativeRect))
             {
                 return true;
             }
 
-            var topLeft = screenToLocal(new WpfPoint(nativeRect.Left, nativeRect.Top));
-            var bottomRight = screenToLocal(new WpfPoint(nativeRect.Right, nativeRect.Bottom));
-            var bounds = new Rect(topLeft, bottomRight);
+            var screenBounds = new Rect(
+                nativeRect.Left,
+                nativeRect.Top,
+                nativeRect.Right - nativeRect.Left,
+                nativeRect.Bottom - nativeRect.Top);
+            var bounds = ConvertScreenBounds(screenBounds, screenToLocal);
             if (bounds.Width < 150 || bounds.Height < 90 ||
                 bounds.Right < 0 || bounds.Bottom < 0 || bounds.Left > width || bounds.Top > height)
             {
@@ -85,6 +119,13 @@ internal sealed class WindowSnowSurface
         _orderedPatches = ordered;
     }
 
+    internal static Rect ConvertScreenBounds(Rect screenBounds, Func<WpfPoint, WpfPoint> screenToLocal)
+    {
+        var topLeft = screenToLocal(screenBounds.TopLeft);
+        var bottomRight = screenToLocal(screenBounds.BottomRight);
+        return new Rect(topLeft, bottomRight);
+    }
+
     public bool TryGetTopSurfaceAt(double x, double centerY, double radius, out double surfaceY)
     {
         foreach (var patch in _orderedPatches)
@@ -101,21 +142,16 @@ internal sealed class WindowSnowSurface
         return false;
     }
 
-    public bool TryLandFlake(double x, double oldBottom, double newBottom, double radius)
+    public bool TryLandFlake(double oldX, double oldBottom, double newX, double newBottom, double radius, double viewportWidth)
     {
+        if (viewportWidth > 0 && Math.Abs(newX - oldX) > viewportWidth * 0.5)
+        {
+            return false;
+        }
+
         foreach (var patch in _orderedPatches)
         {
-            if (x < patch.Bounds.Left || x > patch.Bounds.Right)
-            {
-                continue;
-            }
-
-            var surfaceY = patch.Bounds.Top - patch.GetTopHeight(x);
-            if (oldBottom <= surfaceY && newBottom >= surfaceY)
-            {
-                patch.DepositTop(x, Math.Max(0.45, radius * 0.22));
-                return true;
-            }
+            if (patch.TryLandFlake(oldX, oldBottom, newX, newBottom, radius)) return true;
         }
 
         return false;
@@ -198,6 +234,32 @@ internal sealed class WindowSnowSurface
         return buffer.ToString() is "Progman" or "WorkerW" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd";
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MonitorInfo
+    {
+        public int Size;
+        public NativeRect Monitor;
+        public NativeRect Work;
+        public uint Flags;
+    }
+
+    private static bool IsCloaked(IntPtr handle)
+    {
+        int cloaked;
+        return DwmGetWindowAttribute(handle, DwmwaCloaked, out cloaked, sizeof(int)) == 0 && cloaked != 0;
+    }
+
+    private static bool TryGetVisibleBounds(IntPtr handle, out NativeRect bounds)
+    {
+        if (DwmGetWindowAttribute(handle, DwmwaExtendedFrameBounds, out bounds, Marshal.SizeOf<NativeRect>()) == 0 &&
+            bounds.Right > bounds.Left && bounds.Bottom > bounds.Top)
+        {
+            return true;
+        }
+
+        return GetWindowRect(handle, out bounds);
+    }
+
     private delegate bool EnumWindowsCallback(IntPtr handle, IntPtr parameter);
 
     [DllImport("user32.dll")]
@@ -205,6 +267,15 @@ internal sealed class WindowSnowSurface
 
     [DllImport("user32.dll")]
     private static extern bool IsWindowVisible(IntPtr handle);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr handle, uint flags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo monitorInfo);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int GetClassName(IntPtr handle, System.Text.StringBuilder className, int maxCount);
@@ -220,6 +291,12 @@ internal sealed class WindowSnowSurface
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool GetWindowRect(IntPtr handle, out NativeRect rect);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmGetWindowAttribute(IntPtr handle, int attribute, out NativeRect value, int valueSize);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmGetWindowAttribute(IntPtr handle, int attribute, out int value, int valueSize);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct NativeRect
@@ -254,47 +331,22 @@ internal sealed class WindowSnowPatch
     public void UpdateBounds(Rect bounds)
     {
         var previous = Bounds;
+        if (Math.Abs(bounds.Left - previous.Left) > 0.5 || Math.Abs(bounds.Top - previous.Top) > 0.5)
+        {
+            // Snow is attached to the old physical surface. Once the window moves it must fall.
+            ReleaseAllSnow();
+        }
+
         if (Math.Abs(bounds.Width - previous.Width) > 0.5)
         {
-            var oldTop = _top;
-            var nextTop = new double[Math.Max(2, (int)Math.Ceiling(bounds.Width / SampleSpacing) + 1)];
-            for (var i = 0; i < oldTop.Length; i++)
-            {
-                var oldX = previous.Left + i * previous.Width / Math.Max(1, oldTop.Length - 1);
-                if (oldX < bounds.Left || oldX > bounds.Right)
-                {
-                    if (oldTop[i] > 0.25) SnowDropped?.Invoke(oldX, previous.Top - oldTop[i], oldTop[i]);
-                    continue;
-                }
-                var target = (int)Math.Round((oldX - bounds.Left) / Math.Max(1, bounds.Width) * (nextTop.Length - 1));
-                nextTop[Math.Clamp(target, 0, nextTop.Length - 1)] = Math.Max(nextTop[Math.Clamp(target, 0, nextTop.Length - 1)], oldTop[i]);
-            }
-            _top = nextTop;
+            _top = Resample(_top, Math.Max(2, (int)Math.Ceiling(bounds.Width / SampleSpacing) + 1));
         }
 
         if (Math.Abs(bounds.Height - previous.Height) > 0.5)
         {
-            var oldLeft = _left;
-            var oldRight = _right;
             var count = Math.Max(2, (int)Math.Ceiling(bounds.Height / SampleSpacing) + 1);
-            var nextLeft = new double[count];
-            var nextRight = new double[count];
-            for (var i = 0; i < oldLeft.Length; i++)
-            {
-                var oldY = previous.Top + i * previous.Height / Math.Max(1, oldLeft.Length - 1);
-                if (oldY < bounds.Top || oldY > bounds.Bottom)
-                {
-                    if (oldLeft[i] > 0.25) SnowDropped?.Invoke(previous.Left - oldLeft[i], oldY, oldLeft[i]);
-                    if (oldRight[i] > 0.25) SnowDropped?.Invoke(previous.Right + oldRight[i], oldY, oldRight[i]);
-                    continue;
-                }
-                var target = (int)Math.Round((oldY - bounds.Top) / Math.Max(1, bounds.Height) * (count - 1));
-                target = Math.Clamp(target, 0, count - 1);
-                nextLeft[target] = Math.Max(nextLeft[target], oldLeft[i]);
-                nextRight[target] = Math.Max(nextRight[target], oldRight[i]);
-            }
-            _left = nextLeft;
-            _right = nextRight;
+            _left = Resample(_left, count);
+            _right = Resample(_right, count);
         }
 
         Bounds = bounds;
@@ -305,6 +357,35 @@ internal sealed class WindowSnowPatch
 
     public void DepositTop(double x, double amount) => Deposit(_top, x - Bounds.Left, Bounds.Width, amount);
     public void DepositSide(double y, double amount, bool left) => Deposit(left ? _left : _right, y - Bounds.Top, Bounds.Height, amount);
+
+    public bool TryLandFlake(double oldX, double oldBottom, double newX, double newBottom, double radius)
+    {
+        var span = Math.Max(Math.Abs(newX - oldX), Math.Abs(newBottom - oldBottom));
+        var steps = Math.Clamp((int)Math.Ceiling(span / SampleSpacing), 1, 64);
+        var previousGap = double.NegativeInfinity;
+        for (var step = 0; step <= steps; step++)
+        {
+            var progress = (double)step / steps;
+            var x = oldX + (newX - oldX) * progress;
+            if (x < Bounds.Left || x > Bounds.Right)
+            {
+                previousGap = double.NegativeInfinity;
+                continue;
+            }
+
+            var bottom = oldBottom + (newBottom - oldBottom) * progress;
+            var surfaceY = Bounds.Top - GetTopHeight(x);
+            var gap = bottom - surfaceY;
+            if (previousGap <= 0 && gap >= 0)
+            {
+                DepositTop(x, Math.Max(0.45, radius * 0.22));
+                return true;
+            }
+            previousGap = gap;
+        }
+
+        return false;
+    }
 
     public void Draw(DrawingContext context)
     {
