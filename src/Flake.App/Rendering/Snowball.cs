@@ -9,6 +9,7 @@ internal sealed class Snowball
     public double VelocityY { get; set; }
     public double Radius { get; set; }
     public double Rotation { get; set; }
+    public bool IsBroken { get; set; }
 
     public double Mass => Math.Max(1, Radius * Radius);
 }
