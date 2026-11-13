@@ -484,6 +484,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
             if (impactSpeed >= 520)
             {
                 _windowSnowSurface.DepositImpact(windowHit, Math.Max(2.5, radius * 0.42));
+                SpawnImpactFragments(snowball.X, snowball.Y, radius);
                 snowball.IsBroken = true;
                 return;
             }
@@ -517,6 +518,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
                 _snowSurface.Accumulate(snowball.X - radius * 0.45, radius * 0.35);
                 _snowSurface.Accumulate(snowball.X, radius * 0.55);
                 _snowSurface.Accumulate(snowball.X + radius * 0.45, radius * 0.35);
+                SpawnImpactFragments(snowball.X, snowball.Y, radius);
                 snowball.IsBroken = true;
                 return;
             }
@@ -574,7 +576,8 @@ internal sealed class SnowField : FrameworkElement, IDisposable
                 {
                     first.IsBroken = true;
                     second.IsBroken = true;
-                    _snowSurface.Accumulate((first.X + second.X) * 0.5, Math.Min(first.Radius, second.Radius) * 0.35);
+                    SpawnImpactFragments((first.X + second.X) * 0.5, (first.Y + second.Y) * 0.5,
+                        Math.Min(first.Radius, second.Radius));
                     continue;
                 }
 
@@ -985,6 +988,28 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         drawingContext.DrawLine(SnowBrushes.MittenHighlight,
             new WpfPoint(center.X - 3, center.Y - 8), new WpfPoint(center.X - 3, center.Y + 2));
         drawingContext.Pop();
+    }
+
+    private void SpawnImpactFragments(double x, double y, double radius)
+    {
+        var count = Math.Clamp((int)Math.Round(radius / 5), 4, 10);
+        for (var i = 0; i < count && _particles.Count < Math.Min(900, _settings.ParticleCount + 240); i++)
+        {
+            var angle = _random.NextDouble() * Math.PI * 2;
+            var speed = 70 + _random.NextDouble() * 210;
+            _particles.Add(new Snowflake
+            {
+                X = x,
+                Y = y,
+                VelocityX = Math.Cos(angle) * speed,
+                VelocityY = Math.Sin(angle) * speed - 80,
+                Radius = 0.9 + _random.NextDouble() * 1.5,
+                FallSpeed = 32 + _random.NextDouble() * 55,
+                Drift = 5 + _random.NextDouble() * 16,
+                Phase = _random.NextDouble() * Math.PI * 2,
+                Opacity = 0.55 + _random.NextDouble() * 0.4
+            });
+        }
     }
 
     private void SpawnFallingSnow(double x, double y, double amount)
