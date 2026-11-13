@@ -21,6 +21,8 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     private readonly List<Snowball> _snowballs = [];
     private readonly List<Snowman> _snowmen = [];
     private readonly SnowSurface _snowSurface = new();
+    private readonly WindowSnowSurface _windowSnowSurface = new();
+    private TimeSpan _lastWindowRefresh;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly Random _random = new();
     private TimeSpan _lastFrame;
@@ -142,6 +144,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         base.OnRender(drawingContext);
 
         _snowSurface.Draw(drawingContext);
+        _windowSnowSurface.Draw(drawingContext);
 
         foreach (var snowball in _snowballs)
         {
@@ -211,6 +214,11 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         var cursorChanged = UpdateCursorState();
         var width = Math.Max(ActualWidth, 1);
         var height = Math.Max(ActualHeight, 1);
+        if (now - _lastWindowRefresh >= TimeSpan.FromMilliseconds(350))
+        {
+            _windowSnowSurface.Refresh(PointFromScreen, Environment.ProcessId, width, height);
+            _lastWindowRefresh = now;
+        }
 
         if (!_isPaused && _particles.Count > 0)
         {
@@ -241,6 +249,15 @@ internal sealed class SnowField : FrameworkElement, IDisposable
                 }
 
                 particle.X = nextX;
+                if (_windowSnowSurface.TryLandFlake(nextX, particle.Y + radius, nextY + radius, radius))
+                {
+                    particle.Y = -radius - _random.NextDouble() * height * 0.15;
+                    particle.X = _random.NextDouble() * width;
+                    particle.VelocityX = 0;
+                    particle.VelocityY = 0;
+                    continue;
+                }
+
                 var surfaceHeight = _snowSurface.GetHeightAt(Math.Clamp(nextX, 0, width));
                 var surfaceY = height - surfaceHeight;
 
@@ -392,12 +409,16 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         }
 
         ResolveSnowballCollisions();
+        _snowballs.RemoveAll(ball => ball.IsBroken);
+        _snowmen.RemoveAll(man => man.Bottom.IsBroken || man.Middle.IsBroken || man.Top.IsBroken);
         TryAssembleSnowman(height);
     }
 
     private void UpdateSnowballMotion(Snowball snowball, double delta, double width, double height)
     {
         var radius = snowball.Radius;
+        var previousX = snowball.X;
+        var previousY = snowball.Y;
         var slopeProbe = Math.Max(4, radius * 0.45);
         var leftX = Math.Max(0, snowball.X - slopeProbe);
         var rightX = Math.Min(width, snowball.X + slopeProbe);
@@ -452,12 +473,51 @@ internal sealed class SnowField : FrameworkElement, IDisposable
             snowball.VelocityX = -Math.Abs(snowball.VelocityX) * 0.38;
         }
 
+        if (_windowSnowSurface.TryHitBallEdge(previousX, previousY, snowball.X, snowball.Y, radius, out var windowHit))
+        {
+            var impactSpeed = windowHit.Edge == WindowSnowEdge.Top
+                ? Math.Abs(snowball.VelocityY)
+                : Math.Abs(snowball.VelocityX);
+            if (impactSpeed >= 520)
+            {
+                _windowSnowSurface.DepositImpact(windowHit, Math.Max(2.5, radius * 0.42));
+                snowball.IsBroken = true;
+                return;
+            }
+
+            if (windowHit.Edge == WindowSnowEdge.Top)
+            {
+                snowball.Y = windowHit.Surface - radius;
+                snowball.VelocityY = 0;
+                snowball.VelocityX *= 0.82;
+            }
+            else if (windowHit.Edge == WindowSnowEdge.Left)
+            {
+                snowball.X = windowHit.Surface - radius;
+                snowball.VelocityX = 0;
+            }
+            else
+            {
+                snowball.X = windowHit.Surface + radius;
+                snowball.VelocityX = 0;
+            }
+        }
+
         surfaceHeight = _snowSurface.GetHeightAt(snowball.X);
         groundCenterY = height - surfaceHeight - snowball.Radius;
         if (snowball.Y >= groundCenterY && snowball.VelocityY >= 0)
         {
             var impactSpeed = snowball.VelocityY;
             snowball.Y = groundCenterY;
+            if (impactSpeed >= 520)
+            {
+                _snowSurface.Accumulate(snowball.X - radius * 0.45, radius * 0.35);
+                _snowSurface.Accumulate(snowball.X, radius * 0.55);
+                _snowSurface.Accumulate(snowball.X + radius * 0.45, radius * 0.35);
+                snowball.IsBroken = true;
+                return;
+            }
+
             snowball.VelocityY = impactSpeed > 95 ? -impactSpeed * 0.12 : 0;
         }
     }
@@ -506,6 +566,14 @@ internal sealed class SnowField : FrameworkElement, IDisposable
                 var relativeVelocityX = second.VelocityX - first.VelocityX;
                 var relativeVelocityY = second.VelocityY - first.VelocityY;
                 var normalVelocity = relativeVelocityX * normalX + relativeVelocityY * normalY;
+
+                if (normalVelocity < -650)
+                {
+                    first.IsBroken = true;
+                    second.IsBroken = true;
+                    _snowSurface.Accumulate((first.X + second.X) * 0.5, Math.Min(first.Radius, second.Radius) * 0.35);
+                    continue;
+                }
 
                 if (normalVelocity < 0)
                 {
@@ -935,6 +1003,48 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     public void ClearAccumulatedSnow()
     {
         _snowSurface.BeginAnimatedClear();
+        _lastFrame = _clock.Elapsed;
+        InvalidateVisual();
+    }
+
+    public void ClearSnowballs()
+    {
+        _draggedSnowball = null;
+        _draggedSnowman = null;
+        _snowballs.Clear();
+        _snowmen.Clear();
+        if (IsMouseCaptured)
+        {
+            ReleaseMouseCapture();
+        }
+        UpdateClickThroughState();
+        InvalidateVisual();
+    }
+
+    public void ClearAllSnow()
+    {
+        if (_isGatheringSnow)
+        {
+            _isGatheringSnow = false;
+            _formingSnowball = null;
+            _gatheredSnowArea = 0;
+            if (IsMouseCaptured)
+            {
+                ReleaseMouseCapture();
+            }
+        }
+
+        _snowSurface.ClearImmediately();
+        _windowSnowSurface.Clear();
+        var height = Math.Max(ActualHeight, 1);
+        foreach (var particle in _particles)
+        {
+            particle.Y = -particle.Radius - _random.NextDouble() * height;
+            particle.VelocityX = 0;
+            particle.VelocityY = 0;
+        }
+
+        UpdateClickThroughState();
         _lastFrame = _clock.Elapsed;
         InvalidateVisual();
     }
