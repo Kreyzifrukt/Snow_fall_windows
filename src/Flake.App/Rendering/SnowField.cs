@@ -1056,6 +1056,15 @@ internal sealed class SnowField : FrameworkElement, IDisposable
             }
         }
 
+        _draggedSnowball = null;
+        _draggedSnowman = null;
+        _snowballs.Clear();
+        _snowmen.Clear();
+        if (IsMouseCaptured)
+        {
+            ReleaseMouseCapture();
+        }
+
         _snowSurface.ClearImmediately();
         _windowSnowSurface.Clear();
         var height = Math.Max(ActualHeight, 1);
