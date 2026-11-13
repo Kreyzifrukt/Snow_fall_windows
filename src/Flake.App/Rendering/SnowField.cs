@@ -600,6 +600,80 @@ internal sealed class SnowField : FrameworkElement, IDisposable
                 }
             }
         }
+
+        // Snowmen are composite bodies; each visible ball is part of the same movable mass.
+        foreach (var ball in _snowballs)
+        {
+            if (ball.IsBroken || ReferenceEquals(ball, _draggedSnowball))
+            {
+                continue;
+            }
+
+            foreach (var snowman in _snowmen)
+            {
+                if (ReferenceEquals(snowman, _draggedSnowman) ||
+                    snowman.Bottom.IsBroken || snowman.Middle.IsBroken || snowman.Top.IsBroken)
+                {
+                    continue;
+                }
+
+                ResolveSnowballSnowmanCollision(ball, snowman, snowman.Top);
+                if (!ball.IsBroken) ResolveSnowballSnowmanCollision(ball, snowman, snowman.Middle);
+                if (!ball.IsBroken) ResolveSnowballSnowmanCollision(ball, snowman, snowman.Bottom);
+            }
+        }
+    }
+
+    private void ResolveSnowballSnowmanCollision(Snowball ball, Snowman snowman, Snowball part)
+    {
+        var dx = ball.X - part.X;
+        var dy = ball.Y - part.Y;
+        var minimumDistance = ball.Radius + part.Radius;
+        var distanceSquared = dx * dx + dy * dy;
+        if (distanceSquared >= minimumDistance * minimumDistance)
+        {
+            return;
+        }
+
+        var distance = Math.Sqrt(Math.Max(distanceSquared, 0.0001));
+        var normalX = distanceSquared < 0.0001 ? 1 : dx / distance;
+        var normalY = distanceSquared < 0.0001 ? 0 : dy / distance;
+        var penetration = minimumDistance - distance;
+        var inverseMassBall = 1 / ball.Mass;
+        var inverseMassSnowman = 1 / snowman.Mass;
+        var inverseMassTotal = inverseMassBall + inverseMassSnowman;
+
+        ball.X += normalX * penetration * inverseMassBall / inverseMassTotal;
+        ball.Y += normalY * penetration * inverseMassBall / inverseMassTotal;
+        snowman.Translate(
+            -normalX * penetration * inverseMassSnowman / inverseMassTotal,
+            -normalY * penetration * inverseMassSnowman / inverseMassTotal);
+
+        var relativeVelocityX = ball.VelocityX - part.VelocityX;
+        var relativeVelocityY = ball.VelocityY - part.VelocityY;
+        var normalVelocity = relativeVelocityX * normalX + relativeVelocityY * normalY;
+
+        if (normalVelocity < -650)
+        {
+            ball.IsBroken = true;
+            snowman.Bottom.IsBroken = true;
+            snowman.Middle.IsBroken = true;
+            snowman.Top.IsBroken = true;
+            SpawnImpactFragments((ball.X + part.X) * 0.5, (ball.Y + part.Y) * 0.5,
+                Math.Min(ball.Radius, part.Radius));
+            return;
+        }
+
+        if (normalVelocity < 0)
+        {
+            const double restitution = 0.24;
+            var impulse = -(1 + restitution) * normalVelocity / inverseMassTotal;
+            ball.VelocityX += impulse * normalX * inverseMassBall;
+            ball.VelocityY += impulse * normalY * inverseMassBall;
+            snowman.Bottom.VelocityX -= impulse * normalX * inverseMassSnowman;
+            snowman.Bottom.VelocityY -= impulse * normalY * inverseMassSnowman;
+            snowman.AlignParts();
+        }
     }
 
     private void TryAssembleSnowman(double height)
