@@ -198,6 +198,15 @@ internal sealed class SnowSurface
         return collectedArea;
     }
 
+    public void ClearImmediately()
+    {
+        Array.Clear(_heights, 0, _heights.Length);
+        _clearStartHeights = null;
+        _clearElapsed = 0;
+        _hasSnow = false;
+        _geometryDirty = true;
+    }
+
     public void BeginAnimatedClear()
     {
         if (!_hasSnow || IsClearing)
