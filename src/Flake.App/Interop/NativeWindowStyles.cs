@@ -16,10 +16,44 @@ internal static class NativeWindowStyles
 
     public static void MakeOverlayClickThrough(IntPtr handle)
     {
-        var extendedStyle = GetWindowLong(handle, GwlExStyle);
-        extendedStyle |= WsExTransparent | WsExToolWindow | WsExNoActivate;
-        SetWindowLong(handle, GwlExStyle, extendedStyle);
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
 
+        var extendedStyle = GetWindowLong(handle, GwlExStyle);
+        extendedStyle |= WsExToolWindow | WsExNoActivate | WsExTransparent;
+        SetWindowLong(handle, GwlExStyle, extendedStyle);
+        RefreshWindowFrame(handle);
+    }
+
+    /// <summary>
+    /// Enables mouse input only while the pointer is over an interactive snow object.
+    /// The non-activating and tool-window styles are preserved.
+    /// </summary>
+    public static void SetClickThrough(IntPtr handle, bool clickThrough)
+    {
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        var extendedStyle = GetWindowLong(handle, GwlExStyle);
+        var updatedStyle = clickThrough
+            ? extendedStyle | WsExTransparent
+            : extendedStyle & ~WsExTransparent;
+
+        if (updatedStyle == extendedStyle)
+        {
+            return;
+        }
+
+        SetWindowLong(handle, GwlExStyle, updatedStyle);
+        RefreshWindowFrame(handle);
+    }
+
+    private static void RefreshWindowFrame(IntPtr handle)
+    {
         SetWindowPos(
             handle,
             HwndTopmost,

@@ -152,18 +152,22 @@ internal sealed class SnowSurface
         }
     }
 
-    /// <summary>Removes a soft circular brush of snow around the supplied surface position.</summary>
-    public bool Sweep(double x, double radius, double strength)
+    /// <summary>
+    /// Removes snow from a circular brush area and returns the amount collected.
+    /// The same operation is used by hand-gathering and by rolling snowballs.
+    /// </summary>
+    public double CollectSnow(double x, double radius, double depth)
     {
-        if (IsClearing || !_hasSnow || _heights.Length < 2 || _sampleSpacing <= 0)
+        if (IsClearing || !_hasSnow || _heights.Length < 2 || _sampleSpacing <= 0 || depth <= 0)
         {
-            return false;
+            return 0;
         }
 
         var center = Math.Clamp(x, 0, _width);
         var centerIndex = (int)Math.Round(center / _sampleSpacing);
-        var brushRadius = Math.Max(8, radius);
-        var affectedSamples = (int)Math.Ceiling(brushRadius * 1.5 / _sampleSpacing);
+        var brushRadius = Math.Max(10, radius * 0.82);
+        var affectedSamples = (int)Math.Ceiling(brushRadius * 1.35 / _sampleSpacing);
+        var collectedArea = 0.0;
         var changed = false;
 
         for (var index = Math.Max(0, centerIndex - affectedSamples);
@@ -173,14 +177,16 @@ internal sealed class SnowSurface
             var distance = (index - centerIndex) * _sampleSpacing;
             var normalizedDistance = distance / brushRadius;
             var weight = Math.Exp(-2.2 * normalizedDistance * normalizedDistance);
-            var removal = Math.Max(0, strength) * weight;
-            var nextHeight = Math.Max(0, _heights[index] - removal);
+            var removal = Math.Min(_heights[index], depth * weight);
 
-            if (nextHeight < _heights[index] - 0.001)
+            if (removal <= 0.0001)
             {
-                _heights[index] = nextHeight;
-                changed = true;
+                continue;
             }
+
+            _heights[index] -= removal;
+            collectedArea += removal * _sampleSpacing;
+            changed = true;
         }
 
         if (changed)
@@ -189,7 +195,7 @@ internal sealed class SnowSurface
             _geometryDirty = true;
         }
 
-        return changed;
+        return collectedArea;
     }
 
     public void BeginAnimatedClear()

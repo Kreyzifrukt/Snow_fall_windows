@@ -18,6 +18,7 @@ internal static class CursorInput
         return true;
     }
 
+
     [StructLayout(LayoutKind.Sequential)]
     private struct NativePoint
     {
