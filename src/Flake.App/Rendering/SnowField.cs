@@ -611,6 +611,11 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 
             foreach (var snowman in _snowmen)
             {
+                if (ball.IsBroken)
+                {
+                    break;
+                }
+
                 if (ReferenceEquals(snowman, _draggedSnowman) ||
                     snowman.Bottom.IsBroken || snowman.Middle.IsBroken || snowman.Top.IsBroken)
                 {
@@ -1116,6 +1121,35 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         });
     }
 
+    private void ClampInteractiveObjectsToViewport(double width, double height)
+    {
+        foreach (var snowball in _snowballs)
+        {
+            var radius = snowball.Radius;
+            var nextX = Math.Clamp(snowball.X, radius, Math.Max(radius, width - radius));
+            var nextY = Math.Clamp(snowball.Y, radius, Math.Max(radius, height - radius));
+            if (Math.Abs(nextX - snowball.X) > 0.01) snowball.VelocityX = 0;
+            if (Math.Abs(nextY - snowball.Y) > 0.01) snowball.VelocityY = 0;
+            snowball.X = nextX;
+            snowball.Y = nextY;
+        }
+
+        foreach (var snowman in _snowmen)
+        {
+            var parts = new[] { snowman.Bottom, snowman.Middle, snowman.Top };
+            var minX = parts.Min(part => part.X - part.Radius);
+            var maxX = parts.Max(part => part.X + part.Radius);
+            var minY = parts.Min(part => part.Y - part.Radius);
+            var maxY = parts.Max(part => part.Y + part.Radius);
+            var offsetX = ClampGroupOffset(0, minX, maxX, width);
+            var offsetY = ClampGroupOffset(0, minY, maxY, height);
+            snowman.Translate(offsetX, offsetY);
+            if (Math.Abs(offsetX) > 0.01) snowman.Bottom.VelocityX = 0;
+            if (Math.Abs(offsetY) > 0.01) snowman.Bottom.VelocityY = 0;
+            snowman.AlignParts();
+        }
+    }
+
     private void ResetParticles()
     {
         if (!IsLoaded || ActualWidth <= 0 || ActualHeight <= 0)
@@ -1124,6 +1158,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         }
 
         _snowSurface.Resize(ActualWidth, ActualHeight);
+        ClampInteractiveObjectsToViewport(ActualWidth, ActualHeight);
         _particles.Clear();
         for (var i = 0; i < _settings.ParticleCount; i++)
         {
