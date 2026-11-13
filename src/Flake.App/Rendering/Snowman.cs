@@ -12,6 +12,9 @@ internal sealed class Snowman
     private static readonly SolidColorBrush CoalBrush = CreateBrush(43, 53, 65, 245);
     private static readonly WpfPen ScarfPen = CreatePen(177, 70, 83, 245, 6);
     private static readonly WpfPen NosePen = CreatePen(232, 145, 65, 245, 3.5);
+    private static readonly WpfPen StickPen = CreatePen(104, 75, 54, 245, 3.2);
+    private static readonly SolidColorBrush HatBrush = CreateBrush(48, 61, 82, 250);
+    private static readonly WpfPen HatPen = CreatePen(28, 39, 57, 255, 1.2);
 
     public Snowball Bottom { get; }
     public Snowball Middle { get; }
@@ -33,9 +36,9 @@ internal sealed class Snowman
     public void AlignParts()
     {
         Middle.X = Bottom.X;
-        Middle.Y = Bottom.Y - Bottom.Radius - Middle.Radius + 1.0;
+        Middle.Y = Bottom.Y - Bottom.Radius - Middle.Radius + 2.5;
         Top.X = Middle.X;
-        Top.Y = Middle.Y - Middle.Radius - Top.Radius + 1.0;
+        Top.Y = Middle.Y - Middle.Radius - Top.Radius + 2.5;
         Middle.VelocityX = Bottom.VelocityX;
         Middle.VelocityY = Bottom.VelocityY;
         Top.VelocityX = Bottom.VelocityX;
@@ -66,7 +69,19 @@ internal sealed class Snowman
             new WpfPoint(head.X + 1, head.Y + 2),
             new WpfPoint(head.X + Top.Radius + 8, head.Y + 5));
 
+        var hatTop = head.Y - Top.Radius - 13;
+        drawingContext.DrawRectangle(HatBrush, HatPen,
+            new Rect(head.X - Top.Radius * 0.72, hatTop + 5, Top.Radius * 1.44, 10));
+        drawingContext.DrawRectangle(HatBrush, HatPen,
+            new Rect(head.X - Top.Radius * 0.48, hatTop - 8, Top.Radius * 0.96, 14));
+
         var scarfY = Middle.Y - Middle.Radius * 0.25;
+        drawingContext.DrawLine(StickPen,
+            new WpfPoint(Middle.X - Middle.Radius * 0.65, Middle.Y - Middle.Radius * 0.1),
+            new WpfPoint(Middle.X - Middle.Radius - 13, Middle.Y - Middle.Radius * 0.65));
+        drawingContext.DrawLine(StickPen,
+            new WpfPoint(Middle.X + Middle.Radius * 0.65, Middle.Y - Middle.Radius * 0.1),
+            new WpfPoint(Middle.X + Middle.Radius + 13, Middle.Y - Middle.Radius * 0.65));
         drawingContext.DrawLine(ScarfPen,
             new WpfPoint(Middle.X - Middle.Radius * 0.72, scarfY),
             new WpfPoint(Middle.X + Middle.Radius * 0.72, scarfY));
