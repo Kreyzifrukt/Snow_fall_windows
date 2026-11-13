@@ -16,6 +16,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     private const double MaximumSnowballRadius = 56.0;
     private const double MinimumFormedSnowballRadius = 4.0;
     private const int MaximumSnowballCount = 24;
+    private const double SnowballHitTestPadding = 5.0;
 
     private readonly List<Snowflake> _particles = [];
     private readonly List<Snowball> _snowballs = [];
@@ -392,26 +393,34 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 
     private void UpdateSnowballWorld(double delta, double width, double height)
     {
-        foreach (var snowball in _snowballs)
+        // Substep fast motion so small snowballs cannot tunnel through one another between frames.
+        var stepCount = Math.Clamp((int)Math.Ceiling(delta / (1.0 / 120.0)), 1, 8);
+        var stepDelta = delta / stepCount;
+
+        for (var step = 0; step < stepCount; step++)
         {
-            if (!ReferenceEquals(snowball, _draggedSnowball))
+            foreach (var snowball in _snowballs)
             {
-                UpdateSnowballMotion(snowball, delta, width, height);
+                if (!ReferenceEquals(snowball, _draggedSnowball))
+                {
+                    UpdateSnowballMotion(snowball, stepDelta, width, height);
+                }
             }
+
+            foreach (var snowman in _snowmen)
+            {
+                if (!ReferenceEquals(snowman, _draggedSnowman))
+                {
+                    UpdateSnowballMotion(snowman.Bottom, stepDelta, width, height);
+                    snowman.AlignParts();
+                }
+            }
+
+            ResolveSnowballCollisions();
+            _snowballs.RemoveAll(ball => ball.IsBroken);
+            _snowmen.RemoveAll(man => man.Bottom.IsBroken || man.Middle.IsBroken || man.Top.IsBroken);
         }
 
-        foreach (var snowman in _snowmen)
-        {
-            if (!ReferenceEquals(snowman, _draggedSnowman))
-            {
-                UpdateSnowballMotion(snowman.Bottom, delta, width, height);
-                snowman.AlignParts();
-            }
-        }
-
-        ResolveSnowballCollisions();
-        _snowballs.RemoveAll(ball => ball.IsBroken);
-        _snowmen.RemoveAll(man => man.Bottom.IsBroken || man.Middle.IsBroken || man.Top.IsBroken);
         TryAssembleSnowman(height);
     }
 
@@ -726,22 +735,8 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     {
         for (var index = _snowmen.Count - 1; index >= 0; index--)
         {
-            var snowman = _snowmen[index];
-            if (IsInsideSnowball(point, snowman.Top))
+            if (_snowmen[index].TryHitTest(point, SnowballHitTestPadding, out snowball))
             {
-                snowball = snowman.Top;
-                return true;
-            }
-
-            if (IsInsideSnowball(point, snowman.Middle))
-            {
-                snowball = snowman.Middle;
-                return true;
-            }
-
-            if (IsInsideSnowball(point, snowman.Bottom))
-            {
-                snowball = snowman.Bottom;
                 return true;
             }
         }
@@ -763,12 +758,24 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     {
         var dx = point.X - snowball.X;
         var dy = point.Y - snowball.Y;
-        var hitRadius = snowball.Radius + 5;
+        var hitRadius = snowball.Radius + SnowballHitTestPadding;
         return dx * dx + dy * dy <= hitRadius * hitRadius;
     }
 
     private Snowman? FindSnowman(Snowball snowball) =>
         _snowmen.FirstOrDefault(candidate => candidate.Contains(snowball));
+
+    private static double ClampGroupOffset(double offset, double minimum, double maximum, double viewportSize)
+    {
+        var lowerBound = -minimum;
+        var upperBound = viewportSize - maximum;
+        if (lowerBound > upperBound)
+        {
+            return (lowerBound + upperBound) * 0.5;
+        }
+
+        return Math.Clamp(offset, lowerBound, upperBound);
+    }
 
     private void HandleMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -830,18 +837,26 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         }
 
         var desiredCenter = new WpfPoint(position.X - _dragOffset.X, position.Y - _dragOffset.Y);
-        var radius = _draggedSnowball.Radius;
-        desiredCenter.X = Math.Clamp(desiredCenter.X, radius, Math.Max(radius, ActualWidth - radius));
-        desiredCenter.Y = Math.Clamp(desiredCenter.Y, radius, Math.Max(radius, ActualHeight - radius));
-
         var offsetX = desiredCenter.X - _draggedSnowball.X;
         var offsetY = desiredCenter.Y - _draggedSnowball.Y;
+
         if (_draggedSnowman is not null)
         {
+            // Clamp the whole assembly, not only the particular ball that was clicked.
+            var parts = new[] { _draggedSnowman.Bottom, _draggedSnowman.Middle, _draggedSnowman.Top };
+            var minX = parts.Min(part => part.X - part.Radius);
+            var maxX = parts.Max(part => part.X + part.Radius);
+            var minY = parts.Min(part => part.Y - part.Radius);
+            var maxY = parts.Max(part => part.Y + part.Radius);
+            offsetX = ClampGroupOffset(offsetX, minX, maxX, ActualWidth);
+            offsetY = ClampGroupOffset(offsetY, minY, maxY, ActualHeight);
             _draggedSnowman.Translate(offsetX, offsetY);
         }
         else
         {
+            var radius = _draggedSnowball.Radius;
+            desiredCenter.X = Math.Clamp(desiredCenter.X, radius, Math.Max(radius, ActualWidth - radius));
+            desiredCenter.Y = Math.Clamp(desiredCenter.Y, radius, Math.Max(radius, ActualHeight - radius));
             _draggedSnowball.X = desiredCenter.X;
             _draggedSnowball.Y = desiredCenter.Y;
         }
