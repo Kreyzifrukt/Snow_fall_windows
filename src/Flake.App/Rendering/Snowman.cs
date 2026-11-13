@@ -19,6 +19,7 @@ internal sealed class Snowman
     public Snowball Bottom { get; }
     public Snowball Middle { get; }
     public Snowball Top { get; }
+    public double Mass => Bottom.Mass + Middle.Mass + Top.Mass;
 
     public Snowman(Snowball bottom, Snowball middle, Snowball top)
     {
