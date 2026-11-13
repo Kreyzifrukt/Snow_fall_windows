@@ -393,7 +393,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     private void UpdateSnowballWorld(double delta, double width, double height)
     {
         // Substep fast motion so small snowballs cannot tunnel through one another between frames.
-        var stepCount = Math.Clamp((int)Math.Ceiling(delta / (1.0 / 120.0)), 1, 8);
+        var stepCount = Math.Clamp((int)Math.Ceiling(delta / (1.0 / 240.0)), 1, 16);
         var stepDelta = delta / stepCount;
 
         for (var step = 0; step < stepCount; step++)
