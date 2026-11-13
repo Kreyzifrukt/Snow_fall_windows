@@ -1060,10 +1060,19 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         _draggedSnowman = null;
         _snowballs.Clear();
         _snowmen.Clear();
+
+        if (_isGatheringSnow)
+        {
+            _isGatheringSnow = false;
+            _formingSnowball = null;
+            _gatheredSnowArea = 0;
+        }
+
         if (IsMouseCaptured)
         {
             ReleaseMouseCapture();
         }
+
         UpdateClickThroughState();
         InvalidateVisual();
     }
