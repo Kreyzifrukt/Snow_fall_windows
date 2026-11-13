@@ -51,6 +51,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     public SnowField()
     {
         IsHitTestVisible = true;
+        _windowSnowSurface.SnowDropped += SpawnFallingSnow;
         Loaded += (_, _) => ResetParticles();
         SizeChanged += (_, _) => ResetParticles();
         MouseLeftButtonDown += HandleMouseLeftButtonDown;
@@ -980,6 +981,23 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         drawingContext.DrawLine(SnowBrushes.MittenHighlight,
             new WpfPoint(center.X - 3, center.Y - 8), new WpfPoint(center.X - 3, center.Y + 2));
         drawingContext.Pop();
+    }
+
+    private void SpawnFallingSnow(double x, double y, double amount)
+    {
+        if (_particles.Count >= Math.Min(900, _settings.ParticleCount + 240)) return;
+        _particles.Add(new Snowflake
+        {
+            X = x,
+            Y = y,
+            VelocityX = (_random.NextDouble() - 0.5) * 65,
+            VelocityY = -15 - _random.NextDouble() * 35,
+            Radius = Math.Clamp(0.7 + Math.Sqrt(amount) * 0.35, 0.8, 2.4),
+            FallSpeed = 35 + _random.NextDouble() * 45,
+            Drift = 5 + _random.NextDouble() * 15,
+            Phase = _random.NextDouble() * Math.PI * 2,
+            Opacity = 0.55 + _random.NextDouble() * 0.35
+        });
     }
 
     private void ResetParticles()
