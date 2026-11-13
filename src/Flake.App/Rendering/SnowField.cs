@@ -43,7 +43,6 @@ internal sealed class SnowField : FrameworkElement, IDisposable
     private Snowball? _draggedSnowball;
     private Snowman? _draggedSnowman;
     private WpfPoint _dragOffset;
-    private WpfPoint _lastDragPosition;
     private TimeSpan _lastDragTime;
 
     /// <summary>Raised when the native overlay must start or stop passing mouse input through.</summary>
@@ -790,7 +789,6 @@ internal sealed class SnowField : FrameworkElement, IDisposable
             _draggedSnowball = snowball;
             _draggedSnowman = FindSnowman(snowball);
             _dragOffset = new WpfPoint(position.X - snowball.X, position.Y - snowball.Y);
-            _lastDragPosition = position;
             _lastDragTime = _clock.Elapsed;
             snowball.VelocityX = 0;
             snowball.VelocityY = 0;
@@ -836,6 +834,7 @@ internal sealed class SnowField : FrameworkElement, IDisposable
             return;
         }
 
+        var previousCenter = new WpfPoint(_draggedSnowball.X, _draggedSnowball.Y);
         var desiredCenter = new WpfPoint(position.X - _dragOffset.X, position.Y - _dragOffset.Y);
         var offsetX = desiredCenter.X - _draggedSnowball.X;
         var offsetY = desiredCenter.Y - _draggedSnowball.Y;
@@ -863,8 +862,8 @@ internal sealed class SnowField : FrameworkElement, IDisposable
 
         var now = _clock.Elapsed;
         var elapsed = Math.Max((now - _lastDragTime).TotalSeconds, 1.0 / 240.0);
-        var velocityX = Math.Clamp((position.X - _lastDragPosition.X) / elapsed, -900, 900);
-        var velocityY = Math.Clamp((position.Y - _lastDragPosition.Y) / elapsed, -900, 900);
+        var velocityX = Math.Clamp((_draggedSnowball.X - previousCenter.X) / elapsed, -900, 900);
+        var velocityY = Math.Clamp((_draggedSnowball.Y - previousCenter.Y) / elapsed, -900, 900);
 
         if (_draggedSnowman is not null)
         {
@@ -878,7 +877,6 @@ internal sealed class SnowField : FrameworkElement, IDisposable
             _draggedSnowball.VelocityY = velocityY;
         }
 
-        _lastDragPosition = position;
         _lastDragTime = now;
         e.Handled = true;
         InvalidateVisual();
