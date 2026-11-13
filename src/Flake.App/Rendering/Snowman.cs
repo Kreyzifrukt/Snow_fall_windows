@@ -33,6 +33,92 @@ internal sealed class Snowman
         ReferenceEquals(Middle, ball) ||
         ReferenceEquals(Top, ball);
 
+    /// <summary>Tests the visible snowman parts and accessories using the same geometry used for drawing.</summary>
+    public bool TryHitTest(WpfPoint point, double padding, out Snowball hitPart)
+    {
+        if (IsInsideBall(point, Top, padding))
+        {
+            hitPart = Top;
+            return true;
+        }
+
+        if (IsInsideBall(point, Middle, padding))
+        {
+            hitPart = Middle;
+            return true;
+        }
+
+        if (IsInsideBall(point, Bottom, padding))
+        {
+            hitPart = Bottom;
+            return true;
+        }
+
+        var head = new WpfPoint(Top.X, Top.Y);
+        var hatTop = head.Y - Top.Radius - 13;
+        var brim = new Rect(
+            head.X - Top.Radius * 0.72 - padding,
+            hatTop + 5 - padding,
+            Top.Radius * 1.44 + padding * 2,
+            10 + padding * 2);
+        var crown = new Rect(
+            head.X - Top.Radius * 0.48 - padding,
+            hatTop - 8 - padding,
+            Top.Radius * 0.96 + padding * 2,
+            14 + padding * 2);
+
+        if (brim.Contains(point) || crown.Contains(point) ||
+            IsNearSegment(point,
+                new WpfPoint(head.X + 1, head.Y + 2),
+                new WpfPoint(head.X + Top.Radius + 8, head.Y + 5), padding + 2))
+        {
+            hitPart = Top;
+            return true;
+        }
+
+        var leftArmStart = new WpfPoint(Middle.X - Middle.Radius * 0.65, Middle.Y - Middle.Radius * 0.1);
+        var leftArmEnd = new WpfPoint(Middle.X - Middle.Radius - 13, Middle.Y - Middle.Radius * 0.65);
+        var rightArmStart = new WpfPoint(Middle.X + Middle.Radius * 0.65, Middle.Y - Middle.Radius * 0.1);
+        var rightArmEnd = new WpfPoint(Middle.X + Middle.Radius + 13, Middle.Y - Middle.Radius * 0.65);
+        var scarfY = Middle.Y - Middle.Radius * 0.25;
+
+        if (IsNearSegment(point, leftArmStart, leftArmEnd, padding + 2) ||
+            IsNearSegment(point, rightArmStart, rightArmEnd, padding + 2) ||
+            IsNearSegment(point,
+                new WpfPoint(Middle.X - Middle.Radius * 0.72, scarfY),
+                new WpfPoint(Middle.X + Middle.Radius * 0.72, scarfY), padding + 3))
+        {
+            hitPart = Middle;
+            return true;
+        }
+
+        hitPart = null!;
+        return false;
+    }
+
+    private static bool IsInsideBall(WpfPoint point, Snowball ball, double padding)
+    {
+        var dx = point.X - ball.X;
+        var dy = point.Y - ball.Y;
+        var hitRadius = ball.Radius + padding;
+        return dx * dx + dy * dy <= hitRadius * hitRadius;
+    }
+
+    private static bool IsNearSegment(WpfPoint point, WpfPoint start, WpfPoint end, double tolerance)
+    {
+        var dx = end.X - start.X;
+        var dy = end.Y - start.Y;
+        var lengthSquared = dx * dx + dy * dy;
+        var projection = lengthSquared <= 0.0001
+            ? 0
+            : Math.Clamp(((point.X - start.X) * dx + (point.Y - start.Y) * dy) / lengthSquared, 0, 1);
+        var nearestX = start.X + projection * dx;
+        var nearestY = start.Y + projection * dy;
+        var distanceX = point.X - nearestX;
+        var distanceY = point.Y - nearestY;
+        return distanceX * distanceX + distanceY * distanceY <= tolerance * tolerance;
+    }
+
     public void AlignParts()
     {
         Middle.X = Bottom.X;
