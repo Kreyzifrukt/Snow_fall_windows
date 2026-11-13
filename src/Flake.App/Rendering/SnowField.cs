@@ -737,13 +737,13 @@ internal sealed class SnowField : FrameworkElement, IDisposable
         var position = e.GetPosition(this);
         if (_isGatheringSnow)
         {
-            var now = _clock.Elapsed;
-            var elapsed = Math.Clamp((now - _lastGatherTime).TotalSeconds, 1.0 / 240.0, 0.05);
-            if (GatherSnowAlongCursorPath(position, Math.Max(ActualWidth, 1), Math.Max(ActualHeight, 1), elapsed))
+            var gatherNow = _clock.Elapsed;
+            var gatherElapsed = Math.Clamp((gatherNow - _lastGatherTime).TotalSeconds, 1.0 / 240.0, 0.05);
+            if (GatherSnowAlongCursorPath(position, Math.Max(ActualWidth, 1), Math.Max(ActualHeight, 1), gatherElapsed))
             {
                 InvalidateVisual();
             }
-            _lastGatherTime = now;
+            _lastGatherTime = gatherNow;
             e.Handled = true;
             return;
         }
